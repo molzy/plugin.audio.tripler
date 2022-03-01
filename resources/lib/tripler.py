@@ -5,7 +5,7 @@ IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
     from urllib.request import Request, urlopen
 else:
-    from urllib2 import urlopen
+    from urllib2 import Request, urlopen
 
 def get_programs(collection, page):
     output_final = []
