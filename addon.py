@@ -1,42 +1,89 @@
-from xbmcswift2 import Plugin, xbmcgui
-import tripler
-
+from xbmcswift2 import Plugin, ListItem, xbmcgui
+import resources.lib.tripler as tripler
 
 plugin = Plugin()
-
+icon = 'special://home/addons/plugin.audio.tripler/resources/icon.png'
+fanart = 'special://home/addons/plugin.audio.tripler/resources/fanart.png'
 
 @plugin.route('/')
 def main_menu():
     items = [
-        {'label': plugin.get_string(30000),'path': "http://media.on.net/radio/114.m3u",'is_playable': True},
-        {'label': plugin.get_string(30001), 'path': plugin.url_for(program_menu)},
-        {'label': plugin.get_string(30002), 'path': plugin.url_for(audio_archives)},
-        ]
+        {
+            'label': plugin.get_string(30000), 
+            'path': "https://ondemand.rrr.org.au/stream/ws-hq.m3u", 
+            'thumbnail': icon, 
+            'properties': {
+                'StationName': 'Triple RRR',
+                'fanart_image': fanart
+            },
+            'info': {
+                'mediatype': 'music'
+            },
+            'is_playable': True
+        },
+        {'label': plugin.get_string(30001), 'path': plugin.url_for(segment_menu, page=1)},
+        {'label': plugin.get_string(30002), 'path': plugin.url_for(program_menu, page=1)},
+        {'label': plugin.get_string(30003), 'path': plugin.url_for(audio_archives, page=1)},
+    ]
+    listitems = [ListItem.from_dict(**item) for item in items]
 
-    return items
+    return listitems
 
-
-@plugin.route('/program_menu/')
-def program_menu():
-    programs = tripler.get_programs("/programs/podcasts")
+def parse_programs(programs, page):
     items = []
 
     for program in programs:
-        items.append({'label': program['title'], 'path': program['url'], 'is_playable': True})
+        item = {
+            'label': program['title'],
+            'label2': 'aired {}'.format(program['aired']),
+            'info_type': 'video',
+            'info': {
+                'count': program['id'],
+                'title': program['title'],
+                'plot': program['desc'],
+                'date': program['date'],
+                'year': program['year'],
+                'premiered': program['aired'],
+                'aired': program['aired'],
+                'duration': program['duration'],
+                'mediatype': 'song'
+            },
+            'properties': {
+                'StationName': 'Triple RRR',
+                'fanart_image': fanart
+            },
+            'path': program['url'],
+            'thumbnail': program['art'],
+            'is_playable': True
+        }
+        listitem = ListItem.from_dict(**item)
+        items.append(listitem)
 
     return items
 
+@plugin.route('/segment_menu/<page>')
+def segment_menu(page):
+    programs = tripler.get_programs("segments", page)
+    items = parse_programs(programs, page)
+    if len(items) > 0:
+        items.append({'label': "> Next Page", 'path': plugin.url_for(segment_menu, page=int(page) + 1)})
+    return items
 
-@plugin.route('/audio_archives/')
-def audio_archives():
-	archives = tripler.get_audio()
+@plugin.route('/program_menu/<page>')
+def program_menu(page):
+    programs = tripler.get_programs("episodes", page)
+    items = parse_programs(programs, page)
+    if len(items) > 0:
+        items.append({'label': "> Next Page", 'path': plugin.url_for(program_menu, page=int(page) + 1)})
+    return items
 
-	items = []
-	for archive in archives:
-		items.append({'label': archive['title'], 'path': archive['url'], 'is_playable': True})
-
-	return items
-
+@plugin.route('/audio_archives/<page>')
+def audio_archives(page):
+    programs = tripler.get_programs("archives", page)
+    items = parse_programs(programs, page)
+    if len(items) > 0:
+        items.append({'label': "> Next Page", 'path': plugin.url_for(audio_archives, page=int(page) + 1)})
+    return items
 
 if __name__ == '__main__':
     plugin.run()

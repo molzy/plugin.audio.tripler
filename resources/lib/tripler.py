@@ -1,65 +1,62 @@
-from BeautifulSoup import BeautifulSoup 
-import urllib2
-import re
+from bs4 import BeautifulSoup
+import json, time, sys
 
-tripler_URL = "http://www.rrr.org.au/"
+IS_PY3 = sys.version_info[0] > 2
+if IS_PY3:
+    from urllib.request import Request, urlopen
+else:
+    from urllib2 import urlopen
 
-
-def get_programs(page_url):
-    url = tripler_URL + page_url
-    page = urllib2.urlopen(url)
-    soup = BeautifulSoup(page.read())
-
-    url = soup.findAll(href=re.compile("/rss/category"))
-    urls = url[0:12] + url[13:20]
-    
-    title = soup.findAll(['h3'])
-    titles = title[2:32]
-    
-    output = []
-    for i in range(len(url)):
-        try:
-            url_list = urls[i]['href']
-            title_list = titles[i].text
-            output.append({'url': url_list, 'title': title_list})
-        except IndexError:
-            pass
-    
-    return output
-
-
-def get_audio():
-    url = "http://www.rrr.org.au/programs/archive/"
-    page = urllib2.urlopen(url)
-    soup = BeautifulSoup(page.read())
-    url = soup.findAll(['program_archives'] and ['a'])
-    urls = url[24:37]
-    title = soup.findAll(['program_archives'] and ['p'])
-    titles = title[4:37]
-    
-    output = []
-    output_title = []
-    for t in titles:
-        output.append(t.text)
-    for o in output:
-        if not re.search('\d+', o):
-            if not re.search('&', o):
-                output_title.append(o)
-
-    output_url = []
-    for u in urls:
-        if 'High' in u:
-            output_url.append(u)
-
+def get_programs(collection, page):
     output_final = []
-    for i in range(len(output_url)):
+
+    url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+    req = Request(url, headers={'User-Agent': ua})
+    html = urlopen(req)
+    soup = BeautifulSoup(html, 'html.parser')
+
+    divs = soup.findAll(class_='card__text')
+
+    for item in divs:
+        if len(item.contents) < 3:
+            continue
+        if 'data-view-playable' not in item.contents[-1].attrs:
+            continue
+        textbody = ' '.join(item.find(class_='card__body').strings)
+        viewplayable = item.contents[-1].attrs['data-view-playable']
+        mediaurl = ''
         try:
-            url_list = output_url[i]['href']
-            title_list = output_title[i]
-            output_final.append({'url': url_list, 'title': title_list})
-        except IndexError:
-            pass
-    
+            itemobj = json.loads(viewplayable)['items'][0]
+            itemdata = itemobj['data']
+            if itemobj['type'] == 'clip':
+                ts = itemdata['timestamp']
+                l = int(itemdata['duration'])
+                mediaurl = 'https://ondemand.rrr.org.au/getclip?bw=h&l={}&m=r&p=1&s={}'.format(l, ts)
+            elif itemobj['type'] == 'broadcast_episode':
+                ts = itemdata['timestamp']
+                mediaurl = 'https://ondemand.rrr.org.au/getclip?bw=h&l=0&m=r&p=1&s={}'.format(ts)
+            else:
+                if 'audio_file' not in itemdata.keys():
+                    continue
+                mediaurl = itemdata['audio_file']['path']
+        except:
+            continue
+
+        itemtime = time.strptime(itemdata['subtitle'], '%d %B %Y')
+        itemtimestr = time.strftime('%Y-%m-%d', itemtime)
+        output_final.append({
+            'id': itemobj['source_id'],
+            'title': itemdata['title'],
+            'desc': 'Aired on {}.\n{}'.format(itemdata['subtitle'], textbody),
+            'date': time.strftime('%d.%m.%Y', itemtime),
+            'year': int(itemtimestr[0:4]),
+            'aired': itemtimestr,
+            'duration': int(itemdata['duration']),
+            'url': mediaurl,
+            'art': itemdata['image']['path'] if 'image' in itemdata.keys() else ''
+        })
+
     return output_final
 
     
