@@ -19,11 +19,14 @@ def get_programs(collection, page):
     divs = soup.findAll(class_='card__text')
 
     for item in divs:
+        cardbody = item.find(class_='card__body')
+        if not cardbody:
+            continue
+        textbody = ' '.join(cardbody.strings)
         if len(item.contents) < 3:
             continue
         if 'data-view-playable' not in item.contents[-1].attrs:
             continue
-        textbody = ' '.join(item.find(class_='card__body').strings)
         viewplayable = item.contents[-1].attrs['data-view-playable']
         mediaurl = ''
         try:
@@ -40,22 +43,22 @@ def get_programs(collection, page):
                 if 'audio_file' not in itemdata.keys():
                     continue
                 mediaurl = itemdata['audio_file']['path']
+
+            itemtime = time.strptime(itemdata['subtitle'], '%d %B %Y')
+            itemtimestr = time.strftime('%Y-%m-%d', itemtime)
+            output_final.append({
+                'id': itemobj['source_id'],
+                'title': itemdata['title'],
+                'desc': 'Aired on {}.\n{}'.format(itemdata['subtitle'], textbody),
+                'date': time.strftime('%d.%m.%Y', itemtime),
+                'year': int(itemtimestr[0:4]),
+                'aired': itemtimestr,
+                'duration': int(itemdata['duration']) if 'duration' in itemdata.keys() else 0,
+                'url': mediaurl,
+                'art': itemdata['image']['path'] if 'image' in itemdata.keys() else ''
+            })
         except:
             continue
-
-        itemtime = time.strptime(itemdata['subtitle'], '%d %B %Y')
-        itemtimestr = time.strftime('%Y-%m-%d', itemtime)
-        output_final.append({
-            'id': itemobj['source_id'],
-            'title': itemdata['title'],
-            'desc': 'Aired on {}.\n{}'.format(itemdata['subtitle'], textbody),
-            'date': time.strftime('%d.%m.%Y', itemtime),
-            'year': int(itemtimestr[0:4]),
-            'aired': itemtimestr,
-            'duration': int(itemdata['duration']),
-            'url': mediaurl,
-            'art': itemdata['image']['path'] if 'image' in itemdata.keys() else ''
-        })
 
     return output_final
 
