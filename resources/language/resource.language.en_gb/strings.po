@@ -29,17 +29,33 @@ msgstr ""
 #Plugin name
 
 msgctxt "#30000"
-msgid "Triple RRR - Live Stream"
+msgid "Triple RRR"
 msgstr ""
 
 msgctxt "#30001"
-msgid "On Demand - Segments"
+msgid "Triple RRR - Live Stream"
 msgstr ""
 
 msgctxt "#30002"
-msgid "On Demand - Episodes"
+msgid "On Demand - Segments"
 msgstr ""
 
 msgctxt "#30003"
+msgid "On Demand - Episodes"
+msgstr ""
+
+msgctxt "#30004"
 msgid "On Demand - Audio Archives"
+msgstr ""
+
+msgctxt "#30005"
+msgid "> Next Page"
+msgstr ""
+
+msgctxt "#30006"
+msgid "aired %s"
+msgstr ""
+
+msgctxt "#30007"
+msgid "Aired on %s."
 msgstr ""

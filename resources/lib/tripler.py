@@ -7,7 +7,7 @@ if IS_PY3:
 else:
     from urllib2 import Request, urlopen
 
-def get_programs(collection, page):
+def get_programs(plugin, collection, page):
     output_final = []
 
     url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
@@ -49,7 +49,7 @@ def get_programs(collection, page):
             output_final.append({
                 'id': itemobj['source_id'],
                 'title': itemdata['title'],
-                'desc': 'Aired on {}.\n{}'.format(itemdata['subtitle'], textbody),
+                'desc': '\n'.join((plugin.get_string(30007), '%s')) % (itemdata['subtitle'], textbody),
                 'date': time.strftime('%d.%m.%Y', itemtime),
                 'year': int(itemtimestr[0:4]),
                 'aired': itemtimestr,
