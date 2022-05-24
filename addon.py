@@ -1,9 +1,12 @@
+import os
+from xbmcaddon import Addon
 from xbmcswift2 import Plugin, ListItem, xbmcgui
 import resources.lib.tripler as tripler
 
 plugin = Plugin()
-icon = 'special://home/addons/plugin.audio.tripler/resources/icon.png'
-fanart = 'special://home/addons/plugin.audio.tripler/resources/fanart.png'
+respath = os.path.join(Addon().getAddonInfo('path'), 'resources')
+icon = os.path.join(respath, 'icon.png')
+fanart = os.path.join(respath, 'fanart.png')
 
 @plugin.route('/')
 def main_menu():
