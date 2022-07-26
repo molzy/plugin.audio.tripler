@@ -16,6 +16,7 @@ class TripleR():
         self.icon = os.path.join(respath, 'icon.png')
         self.fanart = os.path.join(respath, 'fanart.png')
         self.nextpage = self.plugin.get_string(30005)
+        self.ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
 
     def run(self):
         self.plugin.run()
@@ -38,6 +39,7 @@ class TripleR():
             {'label': self.plugin.get_string(30002), 'path': self.plugin.url_for(segment_menu, page=1)},
             {'label': self.plugin.get_string(30003), 'path': self.plugin.url_for(program_menu, page=1)},
             {'label': self.plugin.get_string(30004), 'path': self.plugin.url_for(audio_archives, page=1)},
+            {'label': self.plugin.get_string(30010), 'path': self.plugin.url_for(settings)},
         ]
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
@@ -63,12 +65,32 @@ class TripleR():
             items.append({'label': self.nextpage, 'path': self.plugin.url_for(audio_archives, page=int(page) + 1)})
         return items
 
+    def albumoftheweek(self, album):
+        if album is None:
+            programs = self.get_albumoftheweek("album-of-the-week", page)
+            items = self.parse_programs(programs, page)
+            if len(items) > 0:
+                items.append({'label': self.nextpage, 'path': self.plugin.url_for(audio_archives, page=int(page) + 1)})
+            return items
+
     def get_programs(self, collection, page):
         output_final = []
 
         url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
-        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
-        req = Request(url, headers={'User-Agent': ua})
+        req = Request(url, headers={'User-Agent': self.ua})
+        html = urlopen(req)
+        soup = BeautifulSoup(html, 'html.parser')
+
+        divs = soup.findAll(class_='card__text')
+
+        for item in divs:
+            cardanchor = item.find(class_='card__anchor')
+
+    def get_programs(self, collection, page):
+        output_final = []
+
+        url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
+        req = Request(url, headers={'User-Agent': self.ua})
         html = urlopen(req)
         soup = BeautifulSoup(html, 'html.parser')
 
@@ -167,3 +189,7 @@ def program_menu(page):
 @instance.plugin.route('/audio_archives/<page>')
 def audio_archives(page):
     return instance.audio_archives(page)
+
+@instance.plugin.route('/settings')
+def settings():
+    Addon().openSettings()

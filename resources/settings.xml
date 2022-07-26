@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <category label="30011">
+        <setting label="30012" type="text" id="username" default=""/>
+        <setting label="30013" type="text" id="password" default=""/>
+    </category>
+</settings>
