@@ -2,24 +2,40 @@ from bs4 import BeautifulSoup
 import json, time, sys, os
 from xbmcswift2 import Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
+import xbmc
+
+from resources.lib.scraper import Scraper
 
 IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
     from urllib.request import Request, urlopen
+    from urllib.parse import parse_qs
 else:
     from urllib2 import Request, urlopen
+    from urlparse import parse_qs
 
 class TripleR():
     def __init__(self):
         self.plugin = Plugin()
+        self.url = 'plugin://plugin.audio.tripler'
         respath = os.path.join(Addon().getAddonInfo('path'), 'resources')
         self.icon = os.path.join(respath, 'icon.png')
         self.fanart = os.path.join(respath, 'fanart.png')
         self.nextpage = self.plugin.get_string(30005)
-        self.ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
 
     def run(self):
         self.plugin.run()
+
+    def parse(self):
+        args = parse_qs(sys.argv[2][1:])
+        segments = sys.argv[0].split('/')[3:]
+        xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGDEBUG)
+        if len(segments[0]) < 1:
+            return self.main_menu()
+        elif 'settings' in segments:
+            Addon().openSettings()
+        else:
+            return self.parse_programs(**Scraper.call('/'.join(segments) + str(sys.argv[2])), args=args, segments=segments)
 
     def main_menu(self):
         items = [
@@ -36,160 +52,90 @@ class TripleR():
                 },
                 'is_playable': True
             },
-            {'label': self.plugin.get_string(30002), 'path': self.plugin.url_for(segment_menu, page=1)},
-            {'label': self.plugin.get_string(30003), 'path': self.plugin.url_for(program_menu, page=1)},
-            {'label': self.plugin.get_string(30004), 'path': self.plugin.url_for(audio_archives, page=1)},
-            {'label': self.plugin.get_string(30010), 'path': self.plugin.url_for(settings)},
+            {'label': self.plugin.get_string(30032), 'path': f'{self.url}/programs'},
+            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/segments'},
+            {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts'},
+            {'label': self.plugin.get_string(30035), 'path': f'{self.url}/archives'},
+            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/albumoftheweek'},
+            {'label': self.plugin.get_string(30037), 'path': f'{self.url}/soundscapes'},
+            # {'label': self.plugin.get_string(30038), 'path': f'{self.url}/schedule'},
+            {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events'},
+            {'label': self.plugin.get_string(30010), 'path': f'{self.url}/settings'},
         ]
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
-    def segment_menu(self, page):
-        programs = self.get_programs("segments", page)
-        items = self.parse_programs(programs, page)
-        if len(items) > 0:
-            items.append({'label': self.nextpage, 'path': self.plugin.url_for(segment_menu, page=int(page) + 1)})
-        return items
-
-    def program_menu(self, page):
-        programs = self.get_programs("episodes", page)
-        items = self.parse_programs(programs, page)
-        if len(items) > 0:
-            items.append({'label': self.nextpage, 'path': self.plugin.url_for(program_menu, page=int(page) + 1)})
-        return items
-
-    def audio_archives(self, page):
-        programs = self.get_programs("archives", page)
-        items = self.parse_programs(programs, page)
-        if len(items) > 0:
-            items.append({'label': self.nextpage, 'path': self.plugin.url_for(audio_archives, page=int(page) + 1)})
-        return items
-
-    def albumoftheweek(self, album):
-        if album is None:
-            programs = self.get_albumoftheweek("album-of-the-week", page)
-            items = self.parse_programs(programs, page)
-            if len(items) > 0:
-                items.append({'label': self.nextpage, 'path': self.plugin.url_for(audio_archives, page=int(page) + 1)})
-            return items
-
-    def get_programs(self, collection, page):
-        output_final = []
-
-        url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
-        req = Request(url, headers={'User-Agent': self.ua})
-        html = urlopen(req)
-        soup = BeautifulSoup(html, 'html.parser')
-
-        divs = soup.findAll(class_='card__text')
-
-        for item in divs:
-            cardanchor = item.find(class_='card__anchor')
-
-    def get_programs(self, collection, page):
-        output_final = []
-
-        url = "https://www.rrr.org.au/on-demand/{}?page={}".format(collection, page)
-        req = Request(url, headers={'User-Agent': self.ua})
-        html = urlopen(req)
-        soup = BeautifulSoup(html, 'html.parser')
-
-        divs = soup.findAll(class_='card__text')
-
-        for item in divs:
-            cardbody = item.find(class_='card__body')
-            if not cardbody:
-                continue
-            textbody = ' '.join(cardbody.strings)
-            if len(item.contents) < 3:
-                continue
-            if 'data-view-playable' not in item.contents[-1].attrs:
-                continue
-            viewplayable = item.contents[-1].attrs['data-view-playable']
-            mediaurl = ''
-            try:
-                itemobj = json.loads(viewplayable)['items'][0]
-                itemdata = itemobj['data']
-                if itemobj['type'] == 'clip':
-                    ts = itemdata['timestamp']
-                    l = int(itemdata['duration'])
-                    mediaurl = 'https://ondemand.rrr.org.au/getclip?bw=h&l={}&m=r&p=1&s={}'.format(l, ts)
-                elif itemobj['type'] == 'broadcast_episode':
-                    ts = itemdata['timestamp']
-                    mediaurl = 'https://ondemand.rrr.org.au/getclip?bw=h&l=0&m=r&p=1&s={}'.format(ts)
-                else:
-                    if 'audio_file' not in list(itemdata.keys()):
-                        continue
-                    mediaurl = itemdata['audio_file']['path']
-
-                itemtime = time.strptime(itemdata['subtitle'], '%d %B %Y')
-                itemtimestr = time.strftime('%Y-%m-%d', itemtime)
-                output_final.append({
-                    'id': itemobj['source_id'],
-                    'title': itemdata['title'],
-                    'desc': '\n'.join((self.plugin.get_string(30007), '%s')) % (itemdata['subtitle'], textbody),
-                    'date': time.strftime('%d.%m.%Y', itemtime),
-                    'year': int(itemtimestr[0:4]),
-                    'aired': itemtimestr,
-                    'duration': int(itemdata['duration']) if 'duration' in list(itemdata.keys()) else 0,
-                    'url': mediaurl,
-                    'art': itemdata['image']['path'] if 'image' in list(itemdata.keys()) else ''
-                })
-            except:
-                continue
-
-        return output_final
-
-    def parse_programs(self, programs, page):
+    def parse_programs(self, result, args, segments, menu=False, external=False, pagination=False):
         items = []
+        page = args['page'][0] if 'page' in args.keys() else 1
 
-        for program in programs:
+        for menuitem in result:
+            if menuitem is None:
+                continue
+
+            if 'subtitle' in menuitem.keys():
+                textbody = '\n'.join((self.plugin.get_string(30007), '%s')) % (menuitem['subtitle'], menuitem['textbody'])
+            else:
+                textbody = menuitem['textbody'] if 'textbody' in menuitem.keys() else ''
+
+            if 'venue' in menuitem.keys():
+                textbody = '\n'.join((menuitem['venue'], textbody))
+            if 'aired' in menuitem.keys():
+                aired = self.plugin.get_string(30006) % (menuitem['aired'])
+            else:
+                aired = ''
+
+            if menu:
+                pathurl = '{}/{}/{}'.format(self.url, '/'.join(segments), menuitem['id'])
+                mediatype = ''
+            else:
+                pathurl = menuitem['url'] if 'url' in menuitem.keys() else ''
+                mediatype = 'song'
+
             item = {
-                'label': program['title'],
-                'label2': self.plugin.get_string(30006) % (program['aired']),
+                'label': menuitem['title'],
+                'label2': aired,
                 'info_type': 'video',
                 'info': {
-                    'count': program['id'],
-                    'title': program['title'],
-                    'plot': program['desc'],
-                    'date': program['date'],
-                    'year': program['year'],
-                    'premiered': program['aired'],
-                    'aired': program['aired'],
-                    'duration': program['duration'],
-                    'mediatype': 'song'
+                    'count': menuitem['id'],
+                    'title': menuitem['title'],
+                    'plot': textbody,
+                    'date': menuitem['date'] if 'date' in menuitem.keys() else '',
+                    'year': menuitem['year'] if 'year' in menuitem.keys() else '',
+                    'premiered': aired,
+                    'aired': aired,
+                    'duration': menuitem['duration'] if 'duration' in menuitem.keys() else '',
                 },
                 'properties': {
                     'StationName': self.plugin.get_string(30000),
                     'fanart_image': self.fanart
                 },
-                'path': program['url'],
-                'thumbnail': program['art'],
-                'is_playable': True
+                'path': pathurl,
+                'thumbnail': menuitem['thumbnail'] if 'thumbnail' in menuitem.keys() else '',
+                'is_playable': False if menu or external else True
             }
+            if mediatype:
+                item['info']['mediatype'] = mediatype
+            xbmc.log("menuitem: " + str(pathurl), xbmc.LOGDEBUG)
             listitem = ListItem.from_dict(**item)
             items.append(listitem)
+
+        if ((not menu) and (not external)) or pagination:
+            if len(items) > 0:
+                pathurl = '{}/{}?page={}'
+                items.append(
+                    {
+                        'label': self.nextpage,
+                        'path': pathurl.format(self.url, '/'.join(segments), int(page) + 1)
+                    }
+                )
 
         return items
 
 instance = TripleR()
 
-@instance.plugin.route('/')
-def main_menu():
-    return instance.main_menu()
-
-@instance.plugin.route('/segment_menu/<page>')
-def segment_menu(page):
-    return instance.segment_menu(page)
-
-@instance.plugin.route('/program_menu/<page>')
-def program_menu(page):
-    return instance.program_menu(page)
-
-@instance.plugin.route('/audio_archives/<page>')
-def audio_archives(page):
-    return instance.audio_archives(page)
-
-@instance.plugin.route('/settings')
-def settings():
-    Addon().openSettings()
+@instance.plugin.route('/.*')
+def router():
+    result = instance.parse()
+    if result:
+        return result

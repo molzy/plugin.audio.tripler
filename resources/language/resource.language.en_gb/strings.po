@@ -35,18 +35,6 @@ msgctxt "#30001"
 msgid "Triple R - Live Stream"
 msgstr ""
 
-msgctxt "#30002"
-msgid "On Demand - Segments"
-msgstr ""
-
-msgctxt "#30003"
-msgid "On Demand - Episodes"
-msgstr ""
-
-msgctxt "#30004"
-msgid "On Demand - Audio Archives"
-msgstr ""
-
 msgctxt "#30005"
 msgid "> Next Page"
 msgstr ""
@@ -56,7 +44,7 @@ msgid "aired %s"
 msgstr ""
 
 msgctxt "#30007"
-msgid "Aired on %s."
+msgid "Dated %s, Melbourne time."
 msgstr ""
 
 msgctxt "#30010"
@@ -73,4 +61,36 @@ msgstr ""
 
 msgctxt "#30013"
 msgid "Password"
+msgstr ""
+
+msgctxt "#30032"
+msgid "Programs"
+msgstr ""
+
+msgctxt "#30033"
+msgid "Segments"
+msgstr ""
+
+msgctxt "#30034"
+msgid "Broadcast Episodes"
+msgstr ""
+
+msgctxt "#30035"
+msgid "Audio Archives"
+msgstr ""
+
+msgctxt "#30036"
+msgid "Album Of The Week"
+msgstr ""
+
+msgctxt "#30037"
+msgid "Soundscapes"
+msgstr ""
+
+msgctxt "#30038"
+msgid "Schedule"
+msgstr ""
+
+msgctxt "#30039"
+msgid "Events"
 msgstr ""
