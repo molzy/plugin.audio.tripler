@@ -101,7 +101,6 @@ class Programs(Scraper):
                 }
                 for card in self.soup().findAll('div', class_='card clearfix')
             ],
-            'menu': True
         }
 
 
@@ -150,7 +149,6 @@ class Program(Scraper):
             )
         return {
             'result': collections,
-            'menu': True
         }
 
 
@@ -163,7 +161,7 @@ class AudioItemGenerator:
                     for div in self.soup().findAll(class_='card__text')
                 ]
             ],
-            'menu': False
+            'pagination': True
         }
 
 class ProgramBroadcasts(Scraper, AudioItemGenerator):
@@ -250,7 +248,6 @@ class AlbumOfTheWeek(Scraper):
                     'url': album_url
                 }
             ],
-            'external': True
         }
 
     def url_path(self):
@@ -273,7 +270,6 @@ class AlbumOfTheWeeks(Scraper):
                 }
                 for card in self.soup().findAll('div', class_='card clearfix')
             ],
-            'menu': True,
             'pagination': True
         }
 
@@ -312,7 +308,6 @@ class Schedule(Scraper):
                 ScheduleItem(item).to_dict()
                 for item in self.soup().findAll(class_='list-view__item')
             ],
-            'menu': True
         }
 
 
@@ -332,7 +327,6 @@ class Soundscapes(Scraper):
                 }
                 for item in self.soup().findAll(class_='list-view__item')
             ],
-            'menu': True,
             'pagination': True
         }
 
@@ -363,7 +357,6 @@ class Events(Scraper):
                 Event(item).to_dict()
                 for item in self.soup().findAll('div', class_='card')
             ],
-            'menu': True,
             'pagination': True
         }
 
@@ -386,7 +379,6 @@ class EventItem(Scraper):
                     'textbody': '\n'.join((eventdetails, textbody)),
                 }
             ],
-            'menu': True
         }
 
 
@@ -459,7 +451,6 @@ class Event:
         currentyear = time.strftime('%Y', time.localtime())
         if not re.match(r'\d', itemdate.split(' ')[-1][0]):
             itemdate = ' '.join((itemdate, currentyear))
-
         try:
             return time.strptime(itemdate, '%A, %d %B %Y')
         except:
@@ -467,7 +458,6 @@ class Event:
                 itemdate = itemdate.split(' – ')[-1]
                 return time.strptime(itemdate, '%d %B %Y')
             except ValueError as e:
-                raise e
                 return None
 
     @property
@@ -492,17 +482,15 @@ class Event:
         return '\n'.join((self._itemtitle, 'Date: ' + self._itemdate, 'Venue:' if venue else '', self.venue, '', self._itemtype))
 
     def to_dict(self):
-        result = {
+        return {
             'id':         self.id,
             'title':      self.title,
             'event_type': self.event_type,
             'thumbnail':  self.thumbnail,
-            'venue':      self.venue,
             'date':       self.date,
+            'venue':      self.venue,
             'textbody':   self.textbody,
         }
-
-        return result
 
 
 class ScheduleItem:

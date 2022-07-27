@@ -65,7 +65,7 @@ class TripleR():
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
-    def parse_programs(self, result, args, segments, menu=False, external=False, pagination=False):
+    def parse_programs(self, result, args, segments, pagination=False):
         items = []
         page = args['page'][0] if 'page' in args.keys() else 1
 
@@ -85,12 +85,14 @@ class TripleR():
             else:
                 aired = ''
 
-            if menu:
-                pathurl = '{}/{}/{}'.format(self.url, '/'.join(segments), menuitem['id'])
-                mediatype = ''
-            else:
-                pathurl = menuitem['url'] if 'url' in menuitem.keys() else ''
+            if 'url' in menuitem.keys():
+                pathurl = menuitem['url']
+                is_playable = not pathurl.startswith('plugin://')
                 mediatype = 'song'
+            else:
+                pathurl = '{}/{}/{}'.format(self.url, '/'.join(segments), menuitem['id'])
+                is_playable = False
+                mediatype = ''
 
             item = {
                 'label': menuitem['title'],
@@ -112,7 +114,7 @@ class TripleR():
                 },
                 'path': pathurl,
                 'thumbnail': menuitem['thumbnail'] if 'thumbnail' in menuitem.keys() else '',
-                'is_playable': False if menu or external else True
+                'is_playable': is_playable
             }
             if mediatype:
                 item['info']['mediatype'] = mediatype
@@ -120,7 +122,7 @@ class TripleR():
             listitem = ListItem.from_dict(**item)
             items.append(listitem)
 
-        if ((not menu) and (not external)) or pagination:
+        if pagination:
             if len(items) > 0:
                 pathurl = '{}/{}?page={}'
                 items.append(
