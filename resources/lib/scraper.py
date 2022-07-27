@@ -96,11 +96,11 @@ class Scraper:
         if len(resource_path) > 1:
             resource_params = parse_qs(resource_path[-1])
             if not resource_params.get(pagekey):
-                resource_params[pagekey] = int(selfval)
+                resource_params[pagekey] = selfval
             else:
                 resource_params[pagekey] = resource_params[pagekey][0]
         else:
-            resource_params = {pagekey: int(selfval)}
+            resource_params = {pagekey: selfval}
 
         template = resource_path[0] + '?{}'
         links = {}
@@ -108,14 +108,14 @@ class Scraper:
         links['self'] = template.format(urlencode(resource_params))
 
         if nextval:
-            resource_params[pagekey] = int(nextval)
+            resource_params[pagekey] = nextval
         else:
             resource_params[pagekey] = int(resource_params[pagekey]) + 1
         links['next'] = template.format(urlencode(resource_params))
 
         links_last = None
         if lastval:
-            resource_params[pagekey] = int(lastval)
+            resource_params[pagekey] = lastval
             links['last'] = template.format(urlencode(resource_params))
 
         return links
