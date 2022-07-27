@@ -128,7 +128,7 @@ class Programs(Scraper):
 
     def generate(self):
         return {
-            'result': [
+            'data': [
                 {
                     'id':        card.find('a'  , class_='card__anchor').attrs['href'].split('/')[-1],
                     'title':     card.find('h1' , class_='card__title' ).find('a').text,
@@ -184,14 +184,14 @@ class Program(Scraper):
                 }
             )
         return {
-            'result': collections,
+            'data': collections,
         }
 
 
 class AudioItemGenerator:
     def generate(self):
         return {
-            'result': [
+            'data': [
                 item for item in [
                     AudioItem.factory(div)
                     for div in self.soup().findAll(class_='card__text')
@@ -236,7 +236,7 @@ class ArchiveItem(Scraper):
     def generate(self):
         item = self.soup().find(class_='adaptive-banner__audio-component')
         return {
-            'result': AudioItem.factory(item)
+            'data': AudioItem.factory(item)
         }
 
 
@@ -274,7 +274,7 @@ class AlbumOfTheWeek(Scraper):
         album_artist = album_info.find(class_='album-banner__artist',  recursive=False).text
 
         return {
-            'result': [
+            'data': [
                 {
                     'id': self.resource_path.split('/')[-1],
                     'title': ' - '.join((album_artist, album_title)),
@@ -296,7 +296,7 @@ class AlbumOfTheWeeks(Scraper):
 
     def generate(self):
         return {
-            'result': [
+            'data': [
                 {
                     'id':        card.find('a'  , class_='card__anchor').attrs['href'].split('/')[-1],
                     'title':     card.find('h1' , class_='card__title' ).find('a').text,
@@ -315,7 +315,7 @@ class ProgramBroadcastItem(Scraper):
     URL_PATH = 'explore/programs/{program_id}/episodes/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class ProgramPodcastItem(Scraper):
@@ -323,7 +323,7 @@ class ProgramPodcastItem(Scraper):
     URL_PATH = 'explore/podcasts/{program_id}/episodes/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class ProgramSegmentItem(Scraper):
@@ -331,7 +331,7 @@ class ProgramSegmentItem(Scraper):
     URL_PATH = 'on-demand/segments/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class Schedule(Scraper):
@@ -341,7 +341,7 @@ class Schedule(Scraper):
     def generate(self):
         soup = self.soup()
         return {
-            'result': [
+            'data': [
                 ScheduleItem(item).to_dict()
                 for item in self.soup().findAll(class_='list-view__item')
             ],
@@ -354,7 +354,7 @@ class Soundscapes(Scraper):
 
     def generate(self):
         return {
-            'result': [
+            'data': [
                 {
                     'id':        item.find('a').attrs.get('href').split('/')[-1],
                     'title':     item.find('span').text,
@@ -373,7 +373,7 @@ class Soundscape(Scraper):
     URL_PATH = 'explore/soundscape/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class TracksItem(Scraper):
@@ -381,7 +381,7 @@ class TracksItem(Scraper):
     URL_PATH = 'tracks/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class Events(Scraper):
@@ -390,7 +390,7 @@ class Events(Scraper):
 
     def generate(self):
         return {
-            'result': [
+            'data': [
                 Event(item).to_dict()
                 for item in self.soup().findAll('div', class_='card')
             ],
@@ -408,7 +408,7 @@ class EventItem(Scraper):
         eventdetails = item.find(class_='event__details-copy').get_text(' ').strip()
         textbody = item.find(class_='copy').get_text('\n')
         return {
-            'result': [
+            'data': [
                 {
                     'id':       '',
                     'title':    item.find(class_='event__title').text,
@@ -424,7 +424,7 @@ class Video(Scraper):
     URL_PATH = 'explore/videos/{item}'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 class Videos(Scraper):
@@ -432,7 +432,7 @@ class Videos(Scraper):
     URL_PATH = 'explore/videos'
 
     def generate(self):
-        return {'result': []}
+        return {'data': []}
 
 
 
@@ -694,4 +694,4 @@ class Segment(AudioItem):
 
 
 if __name__ == "__main__":
-    print(json.dumps(Scraper.call(sys.argv[1])['result']))
+    print(json.dumps(Scraper.call(sys.argv[1])['data']))

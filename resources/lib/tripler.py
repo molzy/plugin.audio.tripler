@@ -35,7 +35,8 @@ class TripleR():
             Addon().openSettings()
             return None
         else:
-            return self.parse_programs(**Scraper.call('/'.join(segments) + str(sys.argv[2])), args=args, segments=segments)
+            path = '/'.join(segments) + str(sys.argv[2])
+            return self.parse_programs(**Scraper.call(path), args=args, segments=segments)
 
     def main_menu(self):
         items = [
@@ -65,10 +66,10 @@ class TripleR():
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
-    def parse_programs(self, result, args, segments, links=None):
+    def parse_programs(self, data, args, segments, links=None):
         items = []
 
-        for menuitem in result:
+        for menuitem in data:
             if menuitem is None:
                 continue
 
