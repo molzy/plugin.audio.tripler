@@ -18,9 +18,16 @@ scraper.py albumoftheweek?page=1
 scraper.py albumoftheweek/naima-bock-giant-palm
 """
 
-import urllib, bs4, time, json, re, sys
+import bs4, time, json, re, sys
 
-from urllib import request
+IS_PY3 = sys.version_info[0] > 2
+if IS_PY3:
+    from urllib.request import Request, urlopen
+    from urllib.parse import parse_qs, urlencode
+else:
+    from urllib2 import Request, urlopen
+    from urllib2 import urlencode
+    from urlparse import parse_qs
 
 
 URL_BASE = 'https://www.rrr.org.au'
@@ -29,11 +36,11 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 
 def get(resource_path):
-    return urlopen(Scraper.url_for(resource_path))
+    return urlopen_ua(Scraper.url_for(resource_path))
 
-def urlopen(url):
+def urlopen_ua(url):
     sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
-    return request.urlopen(request.Request(url, headers={'User-Agent': USER_AGENT}))
+    return urlopen(Request(url, headers={'User-Agent': USER_AGENT}))
 
 ### Scrapers ##############################################
 
@@ -83,6 +90,35 @@ class Scraper:
             template += '?{query_params}'
 
         return template.format_map(self.groupdict)
+
+    def pagination(self, pagekey='page', selfval=1, nextval=None, lastval=None):
+        resource_path = self.resource_path.split('?')
+        if len(resource_path) > 1:
+            resource_params = parse_qs(resource_path[-1])
+            if not resource_params.get(pagekey):
+                resource_params[pagekey] = int(selfval)
+            else:
+                resource_params[pagekey] = resource_params[pagekey][0]
+        else:
+            resource_params = {pagekey: int(selfval)}
+
+        template = resource_path[0] + '?{}'
+        links = {}
+
+        links['self'] = template.format(urlencode(resource_params))
+
+        if nextval:
+            resource_params[pagekey] = int(nextval)
+        else:
+            resource_params[pagekey] = int(resource_params[pagekey]) + 1
+        links['next'] = template.format(urlencode(resource_params))
+
+        links_last = None
+        if lastval:
+            resource_params[pagekey] = int(lastval)
+            links['last'] = template.format(urlencode(resource_params))
+
+        return links
 
 
 
@@ -161,7 +197,7 @@ class AudioItemGenerator:
                     for div in self.soup().findAll(class_='card__text')
                 ]
             ],
-            'pagination': True
+            'links': self.pagination()
         }
 
 class ProgramBroadcasts(Scraper, AudioItemGenerator):
@@ -270,7 +306,7 @@ class AlbumOfTheWeeks(Scraper):
                 }
                 for card in self.soup().findAll('div', class_='card clearfix')
             ],
-            'pagination': True
+            'links': self.pagination()
         }
 
 
@@ -303,6 +339,7 @@ class Schedule(Scraper):
     URL_PATH = 'explore/schedule'
 
     def generate(self):
+        soup = self.soup()
         return {
             'result': [
                 ScheduleItem(item).to_dict()
@@ -327,7 +364,7 @@ class Soundscapes(Scraper):
                 }
                 for item in self.soup().findAll(class_='list-view__item')
             ],
-            'pagination': True
+            'links': self.pagination()
         }
 
 
@@ -357,7 +394,7 @@ class Events(Scraper):
                 Event(item).to_dict()
                 for item in self.soup().findAll('div', class_='card')
             ],
-            'pagination': True
+            'links': self.pagination()
         }
 
 

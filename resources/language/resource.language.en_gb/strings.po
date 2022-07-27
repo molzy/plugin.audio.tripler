@@ -35,8 +35,12 @@ msgctxt "#30001"
 msgid "Triple R - Live Stream"
 msgstr ""
 
-msgctxt "#30005"
+msgctxt "#30004"
 msgid "> Next Page"
+msgstr ""
+
+msgctxt "#30005"
+msgid ">> Last Page"
 msgstr ""
 
 msgctxt "#30006"

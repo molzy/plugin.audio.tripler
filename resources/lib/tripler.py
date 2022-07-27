@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-import json, time, sys, os
+import time, sys, os
 from xbmcswift2 import Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmc
@@ -8,10 +8,8 @@ from resources.lib.scraper import Scraper
 
 IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
-    from urllib.request import Request, urlopen
     from urllib.parse import parse_qs
 else:
-    from urllib2 import Request, urlopen
     from urlparse import parse_qs
 
 class TripleR():
@@ -21,7 +19,8 @@ class TripleR():
         respath = os.path.join(Addon().getAddonInfo('path'), 'resources')
         self.icon = os.path.join(respath, 'icon.png')
         self.fanart = os.path.join(respath, 'fanart.png')
-        self.nextpage = self.plugin.get_string(30005)
+        self.nextpage = self.plugin.get_string(30004)
+        self.lastpage = self.plugin.get_string(30005)
 
     def run(self):
         self.plugin.run()
@@ -34,6 +33,7 @@ class TripleR():
             return self.main_menu()
         elif 'settings' in segments:
             Addon().openSettings()
+            return None
         else:
             return self.parse_programs(**Scraper.call('/'.join(segments) + str(sys.argv[2])), args=args, segments=segments)
 
@@ -65,9 +65,8 @@ class TripleR():
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
-    def parse_programs(self, result, args, segments, pagination=False):
+    def parse_programs(self, result, args, segments, links=None):
         items = []
-        page = args['page'][0] if 'page' in args.keys() else 1
 
         for menuitem in result:
             if menuitem is None:
@@ -122,15 +121,22 @@ class TripleR():
             listitem = ListItem.from_dict(**item)
             items.append(listitem)
 
-        if pagination:
+        if links and links.get('next'):
             if len(items) > 0:
-                pathurl = '{}/{}?page={}'
-                items.append(
-                    {
-                        'label': self.nextpage,
-                        'path': pathurl.format(self.url, '/'.join(segments), int(page) + 1)
-                    }
-                )
+                if links.get('next'):
+                    items.append(
+                        {
+                            'label': self.nextpage,
+                            'path': '{}/{}'.format(self.url, links['next'])
+                        }
+                    )
+                if links.get('last'):
+                    items.append(
+                        {
+                            'label': self.lastpage,
+                            'path': '{}/{}'.format(self.url, links['last'])
+                        }
+                    )
 
         return items
 
@@ -139,5 +145,4 @@ instance = TripleR()
 @instance.plugin.route('/.*')
 def router():
     result = instance.parse()
-    if result:
-        return result
+    return result
