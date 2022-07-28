@@ -73,11 +73,17 @@ class TripleR():
             if menuitem is None:
                 continue
 
-            textbody = menuitem['textbody'] if menuitem.get('textbody') else ''
+            textbody = menuitem.get('textbody', '')
             if menuitem.get('subtitle'):
                 textbody = '\n'.join((self.plugin.get_string(30007) % (menuitem['subtitle']), textbody))
             if menuitem.get('venue'):
                 textbody = '\n'.join((menuitem['venue'], textbody))
+
+            if menuitem.get('plugin'):
+                title = '{} ({})'.format(menuitem.get('title'), menuitem.get('plugin'))
+                textbody = '{}\nPlay with {}'.format(textbody, menuitem.get('plugin'))
+            else:
+                title = menuitem.get('title')
 
             if menuitem.get('aired'):
                 aired = self.plugin.get_string(30006) % (menuitem['aired'])
@@ -85,34 +91,35 @@ class TripleR():
                 aired = ''
 
             if menuitem.get('url'):
-                pathurl = menuitem['url']
+                pathurl = menuitem.get('url')
                 is_playable = not pathurl.startswith('plugin://')
                 mediatype = 'song'
             else:
-                pathurl = '{}/{}/{}'.format(self.url, '/'.join(segments), menuitem['id'])
+                pathid = ('/' if menuitem.get('id') else '') + menuitem.get('id')
+                pathurl = '{}/{}{}'.format(self.url, '/'.join(segments), pathid)
                 is_playable = False
                 mediatype = ''
 
             item = {
-                'label': menuitem['title'],
+                'label': title,
                 'label2': aired,
                 'info_type': 'video',
                 'info': {
                     'count': menuitem['id'],
-                    'title': menuitem['title'],
+                    'title': title,
                     'plot': textbody,
-                    'date': menuitem['date'] if menuitem.get('date') else '',
-                    'year': menuitem['year'] if menuitem.get('year') else '',
+                    'date': menuitem.get('date', ''),
+                    'year': menuitem.get('year', ''),
                     'premiered': aired,
                     'aired': aired,
-                    'duration': menuitem['duration'] if menuitem.get('duration') else '',
+                    'duration': menuitem.get('duration', ''),
                 },
                 'properties': {
                     'StationName': self.plugin.get_string(30000),
                     'fanart_image': self.fanart
                 },
                 'path': pathurl,
-                'thumbnail': menuitem['thumbnail'] if menuitem.get('thumbnail') else '',
+                'thumbnail': menuitem.get('thumbnail', ''),
                 'is_playable': is_playable
             }
             if mediatype:

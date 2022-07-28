@@ -302,7 +302,7 @@ class ExternalMedia:
 
             matches.append(
                 {
-                    'url':       url if url else '',
+                    'url':       url if media_id else '',
                     'src':       iframe.get('src'),
                     'attrs':     iframe.get('attrs'),
                     'plugin':    plugin if plugin_match else None,
@@ -340,28 +340,34 @@ class FeaturedAlbum(Scraper, ExternalMedia):
             for iframe in pagesoup.findAll('iframe')
             if iframe.attrs.get('src')
         ]
-
         album_urls   = self.media_items(iframes)
-        album_url    = album_urls[0]['url'] if album_urls else ''
 
         album_copy   = '\n'.join([p.text for p in pagesoup.find(class_='feature-album__copy').findAll("p", recursive=False)])
         album_image  = pagesoup.find(class_='audio-summary__album-artwork')
-        album_cover  = album_image.attrs.get('src') if album_image else ''
         album_info   = pagesoup.find(class_='album-banner__copy')
         album_title  = album_info.find(class_='album-banner__heading', recursive=False).text
         album_artist = album_info.find(class_='album-banner__artist',  recursive=False).text
 
+        data = [
+            {
+                'id':        '',
+                'title':     ' - '.join((album_artist, album_title)),
+                'artist':    album_artist,
+                'textbody':  album_copy,
+            }
+        ]
+
+        if album_urls and album_urls[0].get('url'):
+            url = album_urls[0].get('url')
+            if url:
+                data[0]['id']     = self.resource_path.split('/')[-1]
+                data[0]['url']    = url
+                data[0]['plugin'] = album_urls[0].get('plugin')
+        if album_image:
+            data[0]['thumbnail']  = album_image.attrs.get('src')
+
         return {
-            'data': [
-                {
-                    'id':        self.resource_path.split('/')[-1],
-                    'title':     ' - '.join((album_artist, album_title)),
-                    'artist':    album_artist,
-                    'textbody':  album_copy,
-                    'thumbnail': album_cover,
-                    'url':       album_url
-                }
-            ],
+            'data': data,
         }
 
 
@@ -476,18 +482,16 @@ class Soundscape(Scraper, ExternalMedia):
             }
 
             if media.get('plugin'):
-                playwith          = 'Play with {}\n'.format(media.get('plugin'))
-                dataitem['title'] = '{} ({})'.format(media.get('attrs').get('title'), media.get('plugin'))
-                dataitem['id']    = re.sub(' ', '-', media.get('attrs').get('id')).lower()
-                dataitem['url']   = media.get('url')
+                dataitem['title']  = '{} ({})'.format(media.get('attrs').get('title'), media.get('plugin'))
+                dataitem['id']     = re.sub(' ', '-', media.get('attrs').get('id')).lower()
+                dataitem['url']    = media.get('url')
+                dataitem['plugin'] = media.get('plugin')
             else:
-                playwith          = ''
                 dataitem['title'] = media.get('attrs').get('title')
                 dataitem['id']    = ''
 
-            dataitem['textbody'] = '{}\n{}\n{}'.format(
+            dataitem['textbody'] = '{}\n{}\n'.format(
                 media.get('attrs').get('title'),
-                playwith,
                 media.get('attrs').get('featured_album')
             )
 
