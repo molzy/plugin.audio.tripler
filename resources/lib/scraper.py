@@ -14,8 +14,8 @@ scraper.py programs/maps/segments?page=1
 scraper.py segments?page=1
 scraper.py broadcasts?page=1
 scraper.py archives?page=1
-scraper.py albumoftheweek?page=1
-scraper.py albumoftheweek/naima-bock-giant-palm
+scraper.py featured_albums?page=1
+scraper.py featured_albums/naima-bock-giant-palm
 """
 
 import bs4, time, json, re, sys
@@ -240,8 +240,9 @@ class ArchiveItem(Scraper):
         }
 
 
-class AlbumOfTheWeek(Scraper):
-    RE = re.compile(r'^albumoftheweek/(?P<album_id>[^/]+)$')
+class FeaturedAlbum(Scraper):
+    RE = re.compile(r'^featured_albums/(?P<album_id>[^/]+)$')
+    URL_PATH = 'explore/album-of-the-week/{album_id}'
 
     RE_BANDCAMP_ALBUM_ID      = re.compile(r'https://bandcamp.com/EmbeddedPlayer/.*album=(?P<album_id>[^/]+)')
     RE_SOUNDCLOUD_PLAYLIST_ID = re.compile(r'.+soundcloud\.com/playlists/(?P<playlist_id>[^&]+)')
@@ -286,12 +287,9 @@ class AlbumOfTheWeek(Scraper):
             ],
         }
 
-    def url_path(self):
-        return 'explore/album-of-the-week/{album_id}'.format_map(self.groupdict)
 
-
-class AlbumOfTheWeeks(Scraper):
-    RE = re.compile(r'^albumoftheweek(?:[?](?P<query_params>.+))?$')
+class FeaturedAlbums(Scraper):
+    RE = re.compile(r'^featured_albums(?:[?](?P<query_params>.+))?$')
     URL_PATH = 'explore/album-of-the-week'
 
     def generate(self):

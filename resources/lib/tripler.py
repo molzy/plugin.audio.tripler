@@ -57,7 +57,7 @@ class TripleR():
             {'label': self.plugin.get_string(30033), 'path': f'{self.url}/segments'},
             {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts'},
             {'label': self.plugin.get_string(30035), 'path': f'{self.url}/archives'},
-            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/albumoftheweek'},
+            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/featured_albums'},
             {'label': self.plugin.get_string(30037), 'path': f'{self.url}/soundscapes'},
             # {'label': self.plugin.get_string(30038), 'path': f'{self.url}/schedule'},
             {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events'},
