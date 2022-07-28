@@ -42,6 +42,13 @@ def urlopen_ua(url):
     sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
     return urlopen(Request(url, headers={'User-Agent': USER_AGENT}))
 
+def get_json(url):
+    return urlopen_ua(url).read().decode()
+
+def get_json_obj(url):
+    return json.loads(get_json(url))
+
+
 ### Scrapers ##############################################
 
 class UnmatchedResourcePath(BaseException):
@@ -314,13 +321,9 @@ class ExternalMedia:
 
     def bandcamp_album_art(self, album_id):
         api_url = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
-        try:
-            api_json = urlopen_ua(api_url).read().decode()
-            art_id = re.search(self.RE_BANDCAMP_ALBUM_ART, api_json)
-            if art_id:
-                return 'https://f4.bcbits.com/img/a{}_2.jpg'.format(art_id.group(1))
-        except:
-            pass
+        art_id = get_json_obj(api_url).get('art_id')
+        if art_id:
+            return f'https://f4.bcbits.com/img/a{art_id}_2.jpg'
 
         return None
 
