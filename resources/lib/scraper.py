@@ -242,8 +242,10 @@ class ArchiveItem(Scraper):
 
 class ExternalMedia:
     RE_BANDCAMP_ALBUM_ID             = re.compile(r'https://bandcamp.com/EmbeddedPlayer/.*album=(?P<media_id>[^/]+)')
+    RE_BANDCAMP_ALBUM_ART            = re.compile(r'"art_id":(\w+)')
     BANDCAMP_PLUGIN_BASE_URL         = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=list_songs'
     BANDCAMP_PLUGIN_FORMAT           = '{}&album_id={}&item_type=a'
+    BANDCAMP_ALBUM_ART_URL           = 'https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=a&tralbum_id={}'
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
     SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/play/'
@@ -254,11 +256,11 @@ class ExternalMedia:
     YOUTUBE_VIDEO_PLUGIN_FORMAT      = '{}?video_id={}'
 
     RE_YOUTUBE_PLAYLIST_ID           = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)\/.+\?.*list=(?P<media_id>[\w\-]+)')
-    YOUTUBE_PLAYLIST_PLUGIN_FORMAT   = '{}?playlist_id={}'
+    YOUTUBE_PLAYLIST_PLUGIN_FORMAT   = '{}?playlist_id={}&order=default&play=1'
 
     RE_MEDIA_URLS = {
         'Bandcamp':         {
-            're':     RE_BANDCAMP_ALBUM_ID, 
+            're':     RE_BANDCAMP_ALBUM_ID,
             'base':   BANDCAMP_PLUGIN_BASE_URL,
             'format': BANDCAMP_PLUGIN_FORMAT,
         },
@@ -279,29 +281,48 @@ class ExternalMedia:
         }
     }
 
-    def media_url(self, iframes):
+    def media_items(self, iframes, fetch_album_art=False):
         pagesoup = self.soup()
         matches = []
 
-        # Determine bandcamp album ID if present
         for iframe in iframes:
-            try:
-                for plugin, info in self.RE_MEDIA_URLS.items():
-                    plugin_match = re.match(info.get('re'), iframe.get('src'))
-                    if plugin_match:
-                        media_id = plugin_match.groupdict().get('media_id')
-                        if media_id:
-                            matches.append(
-                                {
-                                    'url':    info.get('format').format(info.get('base'), media_id),
-                                    'attrs':  iframe.get('attrs'),
-                                    'plugin': plugin,
-                                }
-                            )
-            except:
+            if not iframe.get('src'):
                 continue
+            url, thumbnail = None, None
+            for plugin, info in self.RE_MEDIA_URLS.items():
+                plugin_match = re.match(info.get('re'), iframe.get('src'))
+                if plugin_match:
+                    media_id = plugin_match.groupdict().get('media_id')
+                    if media_id:
+                        url = info.get('format').format(info.get('base'), media_id)
+                        if fetch_album_art:
+                            if plugin == 'Bandcamp':
+                                thumbnail = self.bandcamp_album_art(media_id)
+                        break
+
+            matches.append(
+                {
+                    'url':       url if url else '',
+                    'src':       iframe.get('src'),
+                    'attrs':     iframe.get('attrs'),
+                    'plugin':    plugin if plugin_match else None,
+                    'thumbnail': thumbnail,
+                }
+            )
 
         return matches
+
+    def bandcamp_album_art(self, album_id):
+        api_url = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
+        try:
+            api_json = urlopen_ua(api_url).read().decode()
+            art_id = re.search(self.RE_BANDCAMP_ALBUM_ART, api_json)
+            if art_id:
+                return 'https://f4.bcbits.com/img/a{}_2.jpg'.format(art_id.group(1))
+        except:
+            pass
+
+        return None
 
 
 class FeaturedAlbum(Scraper, ExternalMedia):
@@ -316,11 +337,11 @@ class FeaturedAlbum(Scraper, ExternalMedia):
                 'src': iframe.attrs.get('src'),
                 'attrs': None
             }
-            for iframe in pagesoup.findAll('iframe') 
+            for iframe in pagesoup.findAll('iframe')
             if iframe.attrs.get('src')
         ]
-        
-        album_urls   = self.media_url(iframes)
+
+        album_urls   = self.media_items(iframes)
         album_url    = album_urls[0]['url'] if album_urls else ''
 
         album_copy   = '\n'.join([p.text for p in pagesoup.find(class_='feature-album__copy').findAll("p", recursive=False)])
@@ -333,12 +354,12 @@ class FeaturedAlbum(Scraper, ExternalMedia):
         return {
             'data': [
                 {
-                    'id': self.resource_path.split('/')[-1],
-                    'title': ' - '.join((album_artist, album_title)),
-                    'artist': album_artist,
-                    'textbody': album_copy,
+                    'id':        self.resource_path.split('/')[-1],
+                    'title':     ' - '.join((album_artist, album_title)),
+                    'artist':    album_artist,
+                    'textbody':  album_copy,
                     'thumbnail': album_cover,
-                    'url': album_url
+                    'url':       album_url
                 }
             ],
         }
@@ -423,12 +444,58 @@ class Soundscapes(Scraper):
         }
 
 
-class Soundscape(Scraper):
+class Soundscape(Scraper, ExternalMedia):
     RE = re.compile(r'^soundscapes/(?P<item>.+)?$')
     URL_PATH = 'explore/soundscape/{item}'
 
     def generate(self):
-        return {'data': []}
+        pagesoup = self.soup()
+
+        iframes = [
+            {
+                'src': heading.find_next_sibling().find('iframe').attrs.get('src'),
+                'attrs': {
+                    'id':             ' '.join(heading.text.split('**')[0].split(' - ')),
+                    'title':          heading.text.split('**')[0],
+                    'artist':         heading.text.split(' - ')[0],
+                    'featured_album': heading.text.split('**')[1] if len(heading.text.split('**')) > 1 else '',
+                }
+            }
+            for heading in pagesoup.find('section', class_='copy').findAll('h2', recursive=False) if len(heading.text) > 2
+        ]
+
+        media_items = self.media_items(iframes, fetch_album_art=True)
+        soundscape_date = pagesoup.find(class_='news-item__title').text.split(' - ')[-1]
+
+        data = []
+        for media in media_items:
+            dataitem = {
+                'subtitle':   soundscape_date,
+                'artist':     media.get('attrs').get('artist'),
+                'thumbnail':  media.get('thumbnail'),
+            }
+
+            if media.get('plugin'):
+                playwith          = 'Play with {}\n'.format(media.get('plugin'))
+                dataitem['title'] = '{} ({})'.format(media.get('attrs').get('title'), media.get('plugin'))
+                dataitem['id']    = re.sub(' ', '-', media.get('attrs').get('id')).lower()
+                dataitem['url']   = media.get('url')
+            else:
+                playwith          = ''
+                dataitem['title'] = media.get('attrs').get('title')
+                dataitem['id']    = ''
+
+            dataitem['textbody'] = '{}\n{}\n{}'.format(
+                media.get('attrs').get('title'),
+                playwith,
+                media.get('attrs').get('featured_album')
+            )
+
+            data.append(dataitem)
+
+        return {
+            'data': data,
+        }
 
 
 class TracksItem(Scraper):
