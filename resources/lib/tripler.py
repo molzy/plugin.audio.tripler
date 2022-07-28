@@ -73,19 +73,18 @@ class TripleR():
             if menuitem is None:
                 continue
 
-            if 'subtitle' in menuitem.keys():
-                textbody = '\n'.join((self.plugin.get_string(30007), '%s')) % (menuitem['subtitle'], menuitem['textbody'])
-            else:
-                textbody = menuitem['textbody'] if 'textbody' in menuitem.keys() else ''
-
-            if 'venue' in menuitem.keys():
+            textbody = menuitem['textbody'] if menuitem.get('textbody') else ''
+            if menuitem.get('subtitle'):
+                textbody = '\n'.join((self.plugin.get_string(30007) % (menuitem['subtitle']), textbody))
+            if menuitem.get('venue'):
                 textbody = '\n'.join((menuitem['venue'], textbody))
-            if 'aired' in menuitem.keys():
+
+            if menuitem.get('aired'):
                 aired = self.plugin.get_string(30006) % (menuitem['aired'])
             else:
                 aired = ''
 
-            if 'url' in menuitem.keys():
+            if menuitem.get('url'):
                 pathurl = menuitem['url']
                 is_playable = not pathurl.startswith('plugin://')
                 mediatype = 'song'
@@ -102,22 +101,23 @@ class TripleR():
                     'count': menuitem['id'],
                     'title': menuitem['title'],
                     'plot': textbody,
-                    'date': menuitem['date'] if 'date' in menuitem.keys() else '',
-                    'year': menuitem['year'] if 'year' in menuitem.keys() else '',
+                    'date': menuitem['date'] if menuitem.get('date') else '',
+                    'year': menuitem['year'] if menuitem.get('year') else '',
                     'premiered': aired,
                     'aired': aired,
-                    'duration': menuitem['duration'] if 'duration' in menuitem.keys() else '',
+                    'duration': menuitem['duration'] if menuitem.get('duration') else '',
                 },
                 'properties': {
                     'StationName': self.plugin.get_string(30000),
                     'fanart_image': self.fanart
                 },
                 'path': pathurl,
-                'thumbnail': menuitem['thumbnail'] if 'thumbnail' in menuitem.keys() else '',
+                'thumbnail': menuitem['thumbnail'] if menuitem.get('thumbnail') else '',
                 'is_playable': is_playable
             }
             if mediatype:
                 item['info']['mediatype'] = mediatype
+
             xbmc.log("menuitem: " + str(pathurl), xbmc.LOGDEBUG)
             listitem = ListItem.from_dict(**item)
             items.append(listitem)

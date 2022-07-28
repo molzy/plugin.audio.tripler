@@ -240,36 +240,92 @@ class ArchiveItem(Scraper):
         }
 
 
-class FeaturedAlbum(Scraper):
+class ExternalMedia:
+    RE_BANDCAMP_ALBUM_ID             = re.compile(r'https://bandcamp.com/EmbeddedPlayer/.*album=(?P<media_id>[^/]+)')
+    BANDCAMP_PLUGIN_BASE_URL         = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=list_songs'
+    BANDCAMP_PLUGIN_FORMAT           = '{}&album_id={}&item_type=a'
+
+    RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
+    SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/play/'
+    SOUNDCLOUD_PLUGIN_FORMAT         = '{}?playlist_id={}'
+
+    RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
+    YOUTUBE_PLUGIN_BASE_URL          = 'plugin://plugin.video.youtube/play/'
+    YOUTUBE_VIDEO_PLUGIN_FORMAT      = '{}?video_id={}'
+
+    RE_YOUTUBE_PLAYLIST_ID           = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)\/.+\?.*list=(?P<media_id>[\w\-]+)')
+    YOUTUBE_PLAYLIST_PLUGIN_FORMAT   = '{}?playlist_id={}'
+
+    RE_MEDIA_URLS = {
+        'Bandcamp':         {
+            're':     RE_BANDCAMP_ALBUM_ID, 
+            'base':   BANDCAMP_PLUGIN_BASE_URL,
+            'format': BANDCAMP_PLUGIN_FORMAT,
+        },
+        'SoundCloud':       {
+            're':     RE_SOUNDCLOUD_PLAYLIST_ID,
+            'base':   SOUNDCLOUD_PLUGIN_BASE_URL,
+            'format': SOUNDCLOUD_PLUGIN_FORMAT,
+        },
+        'YouTube': {
+            're':     RE_YOUTUBE_VIDEO_ID,
+            'base':   YOUTUBE_PLUGIN_BASE_URL,
+            'format': YOUTUBE_VIDEO_PLUGIN_FORMAT,
+        },
+        'YouTube Playlist': {
+            're':     RE_YOUTUBE_PLAYLIST_ID,
+            'base':   YOUTUBE_PLUGIN_BASE_URL,
+            'format': YOUTUBE_PLAYLIST_PLUGIN_FORMAT,
+        }
+    }
+
+    def media_url(self, iframes):
+        pagesoup = self.soup()
+        matches = []
+
+        # Determine bandcamp album ID if present
+        for iframe in iframes:
+            try:
+                for plugin, info in self.RE_MEDIA_URLS.items():
+                    plugin_match = re.match(info.get('re'), iframe.get('src'))
+                    if plugin_match:
+                        media_id = plugin_match.groupdict().get('media_id')
+                        if media_id:
+                            matches.append(
+                                {
+                                    'url':    info.get('format').format(info.get('base'), media_id),
+                                    'attrs':  iframe.get('attrs'),
+                                    'plugin': plugin,
+                                }
+                            )
+            except:
+                continue
+
+        return matches
+
+
+class FeaturedAlbum(Scraper, ExternalMedia):
     RE = re.compile(r'^featured_albums/(?P<album_id>[^/]+)$')
     URL_PATH = 'explore/album-of-the-week/{album_id}'
-
-    RE_BANDCAMP_ALBUM_ID      = re.compile(r'https://bandcamp.com/EmbeddedPlayer/.*album=(?P<album_id>[^/]+)')
-    RE_SOUNDCLOUD_PLAYLIST_ID = re.compile(r'.+soundcloud\.com/playlists/(?P<playlist_id>[^&]+)')
 
     def generate(self):
         pagesoup = self.soup()
 
-        # Determine bandcamp album ID if present
-        iframesrcattr = ''.join([item["src"] for item in pagesoup.findAll('iframe') if "src" in item.attrs])
-        iframeisbandcamp = re.match(self.RE_BANDCAMP_ALBUM_ID, iframesrcattr)
-        iframeissoundcloud = re.match(self.RE_SOUNDCLOUD_PLAYLIST_ID, iframesrcattr)
-        album_url = ''
-
-        if iframeisbandcamp:
-            iframesrcgroupdict = iframeisbandcamp.groupdict()
-            album_id = iframesrcgroupdict['album_id'] if 'album_id' in iframesrcgroupdict.keys() else ''
-            plugin = 'plugin://plugin.audio.kxmxpxtx.bandcamp/'
-            album_url = '{}?mode=list_songs&album_id={}&item_type=a'.format(plugin, album_id)
-
-        if iframeissoundcloud:
-            iframesrcgroupdict = iframeissoundcloud.groupdict()
-            playlist_id = iframesrcgroupdict['playlist_id'] if 'playlist_id' in iframesrcgroupdict.keys() else ''
-            plugin = 'plugin://plugin.audio.soundcloud/'
-            album_url = '{}play/?playlist_id={}'.format(plugin, playlist_id)
+        iframes = [
+            {
+                'src': iframe.attrs.get('src'),
+                'attrs': None
+            }
+            for iframe in pagesoup.findAll('iframe') 
+            if iframe.attrs.get('src')
+        ]
+        
+        album_urls   = self.media_url(iframes)
+        album_url    = album_urls[0]['url'] if album_urls else ''
 
         album_copy   = '\n'.join([p.text for p in pagesoup.find(class_='feature-album__copy').findAll("p", recursive=False)])
-        album_cover  = ''.join([item["src"] for item in pagesoup.findAll(class_='audio-summary__album-artwork') if "src" in item.attrs])
+        album_image  = pagesoup.find(class_='audio-summary__album-artwork')
+        album_cover  = album_image.attrs.get('src') if album_image else ''
         album_info   = pagesoup.find(class_='album-banner__copy')
         album_title  = album_info.find(class_='album-banner__heading', recursive=False).text
         album_artist = album_info.find(class_='album-banner__artist',  recursive=False).text
@@ -286,6 +342,7 @@ class FeaturedAlbum(Scraper):
                 }
             ],
         }
+
 
 
 class FeaturedAlbums(Scraper):
