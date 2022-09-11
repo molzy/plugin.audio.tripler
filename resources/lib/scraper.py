@@ -34,12 +34,15 @@ URL_BASE = 'https://www.rrr.org.au'
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 
+stderr = False
+
 
 def get(resource_path):
     return urlopen_ua(Scraper.url_for(resource_path))
 
 def urlopen_ua(url):
-    sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
+    if stderr:
+        sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
     return urlopen(Request(url, headers={'User-Agent': USER_AGENT}))
 
 def get_json(url):
@@ -485,7 +488,7 @@ class Soundscape(Scraper, ExternalMedia):
             }
 
             if media.get('plugin'):
-                dataitem['title']  = '{} ({})'.format(media.get('attrs').get('title'), media.get('plugin'))
+                dataitem['title']  = media.get('attrs').get('title')
                 dataitem['id']     = re.sub(' ', '-', media.get('attrs').get('id')).lower()
                 dataitem['url']    = media.get('url')
                 dataitem['plugin'] = media.get('plugin')
@@ -582,11 +585,15 @@ class Event:
 
     @property
     def title(self):
-        return ' - '.join((self._itemtitle, self._itemdate, self.label))
+        if self.label:
+            return ' - '.join((self._itemtitle, self._itemdate, self.label))
+        else:
+            return ' - '.join((self._itemtitle, self._itemdate))
 
     @property
     def label(self):
-        return self._itemobj.find(class_='card__label').text
+        label = self._itemobj.find(class_='card__label')
+        return label.text if label else ''
 
     @property
     def _itemtype(self):
@@ -823,4 +830,5 @@ class Segment(AudioItem):
 
 
 if __name__ == "__main__":
+    stderr = True
     print(json.dumps(Scraper.call(sys.argv[1])['data']))

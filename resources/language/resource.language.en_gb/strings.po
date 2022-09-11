@@ -32,7 +32,7 @@ msgid "Triple R"
 msgstr ""
 
 msgctxt "#30001"
-msgid "Triple R - Live Stream"
+msgid "Listen Live!"
 msgstr ""
 
 msgctxt "#30004"
@@ -68,15 +68,15 @@ msgid "Password"
 msgstr ""
 
 msgctxt "#30032"
-msgid "Programs"
+msgid "Browse by Program"
 msgstr ""
 
 msgctxt "#30033"
-msgid "Segments"
+msgid "Latest Programs"
 msgstr ""
 
 msgctxt "#30034"
-msgid "Broadcast Episodes"
+msgid "Latest Segments"
 msgstr ""
 
 msgctxt "#30035"

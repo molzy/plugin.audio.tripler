@@ -28,43 +28,49 @@ class TripleR():
     def parse(self):
         args = parse_qs(sys.argv[2][1:])
         segments = sys.argv[0].split('/')[3:]
-        xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGDEBUG)
+        xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGINFO)
         if len(segments[0]) < 1:
             return self.main_menu()
         elif 'settings' in segments:
             Addon().openSettings()
-            return None
         else:
             path = '/'.join(segments) + str(sys.argv[2])
-            return self.parse_programs(**Scraper.call(path), args=args, segments=segments)
+            parsed = self.parse_programs(**Scraper.call(path), args=args, segments=segments)
+            if parsed:
+                return parsed
 
     def main_menu(self):
         items = [
-            {
-                'label': self.plugin.get_string(30001),
-                'path': "https://ondemand.rrr.org.au/stream/ws-hq.m3u",
-                'thumbnail': self.icon,
-                'properties': {
-                    'StationName': self.plugin.get_string(30000),
-                    'fanart_image': self.fanart
-                },
-                'info': {
-                    'mediatype': 'music'
-                },
-                'is_playable': True
-            },
+            self.livestream_item(),
             {'label': self.plugin.get_string(30032), 'path': f'{self.url}/programs'},
-            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/segments'},
-            {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts'},
+            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/broadcasts'},
+            {'label': self.plugin.get_string(30034), 'path': f'{self.url}/segments'},
             {'label': self.plugin.get_string(30035), 'path': f'{self.url}/archives'},
             {'label': self.plugin.get_string(30036), 'path': f'{self.url}/featured_albums'},
             {'label': self.plugin.get_string(30037), 'path': f'{self.url}/soundscapes'},
             # {'label': self.plugin.get_string(30038), 'path': f'{self.url}/schedule'},
             {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events'},
-            {'label': self.plugin.get_string(30010), 'path': f'{self.url}/settings'},
+            # {'label': self.plugin.get_string(30010), 'path': f'{self.url}/settings'},
         ]
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
+
+    def livestream_item(self):
+        item = {
+            'label': self.plugin.get_string(30001),
+            'path': "https://ondemand.rrr.org.au/stream/ws-hq.m3u",
+            'thumbnail': self.icon,
+            'properties': {
+                'StationName': self.plugin.get_string(30000),
+                'fanart_image': self.fanart
+            },
+            'info': {
+                'mediatype': 'music'
+            },
+            'is_playable': True
+        }
+        return item
+
 
     def parse_programs(self, data, args, segments, links=None):
         items = []
@@ -94,16 +100,18 @@ class TripleR():
                 pathurl = menuitem.get('url')
                 is_playable = not pathurl.startswith('plugin://')
                 mediatype = 'song'
+                info_type = 'video'
             else:
                 pathid = ('/' if menuitem.get('id') else '') + menuitem.get('id')
                 pathurl = '{}/{}{}'.format(self.url, '/'.join(segments), pathid)
                 is_playable = False
                 mediatype = ''
+                info_type = 'video'
 
             item = {
                 'label': title,
                 'label2': aired,
-                'info_type': 'video',
+                'info_type': info_type,
                 'info': {
                     'count': menuitem['id'],
                     'title': title,
@@ -153,4 +161,5 @@ instance = TripleR()
 @instance.plugin.route('/.*')
 def router():
     result = instance.parse()
-    return result
+    if result:
+        return result

@@ -23,7 +23,7 @@
         <news>Version 2.5.0
 - Rewritten with more flexible parser
 - More content added from website
-- Added account login option for subscribers
+- Support for playing music through Bandcamp and YouTube addons
 
 Version 2.0.0
 - Rewritten for Matrix / Python 3.
