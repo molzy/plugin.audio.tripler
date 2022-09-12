@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import bs4, time, json, re, sys, datetime
+# from marshmallow_jsonapi import Schema, fields
+
 
 IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
@@ -35,6 +37,70 @@ def get_json_obj(url):
     return json.loads(get_json(url))
 
 
+class Resource:
+    def __init__(self, itemobj):
+        self._itemobj = itemobj
+
+    def id(self):
+        return self.path.split('/')[-1]
+
+    @property
+    def path(self):
+        return Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])
+
+    RE_CAMEL = re.compile(r'(?<!^)(?=[A-Z])')
+    @property
+    def type(self):
+        return self.RE_CAMEL.sub('_', self.__class__.__name__).lower()
+
+    @property
+    def links(self):
+        return {
+            'self': self.path
+        }
+
+    def attributes(self):
+        return {}
+
+    def links(self):
+        return {
+            'self': self.path
+        }
+
+    def relationships(self):
+        return None
+
+    def included(self):
+        return None
+
+    def to_dict(self):
+        d = {
+            'id':         self.id(),
+            'type':       self.type,
+            'attributes': {
+                'title': self.title,
+                **self.attributes(),
+            },
+            'links'     : self.links(),
+        }
+
+        r = self.relationships()
+        if r:
+            d = {
+                **d,
+                'relationships': r,
+            }
+
+        i = self.included()
+        if i:
+            d = {
+                **d,
+                'included': i,
+            }
+        return d
+
+
+
 ### Scrapers ##############################################
 
 class UnmatchedResourcePath(BaseException):
@@ -44,29 +110,63 @@ class UnmatchedResourcePath(BaseException):
 class Scraper:
     @classmethod
     def call(cls, resource_path):
-        scraper = cls.factory(resource_path)
+        scraper = cls.find_by_resource_path(resource_path)
       # sys.stderr.write(f"[32m# Using : [32;1m'{scraper}'[0m\n")
         return scraper.generate()
 
     @classmethod
     def url_for(cls, resource_path):
-        return (cls.factory(resource_path)).url()
+        return (cls.find_by_resource_path(resource_path)).url()
 
     @classmethod
-    def factory(cls, resource_path):
+    def resource_path_for(cls, website_path):
+        scraper = cls.find_by_website_path(website_path)
+        m = scraper.match_website_path(website_path)
+        if m:
+            return scraper.RESOURCE_PATH_PATTERN.format_map(m.groupdict())
+
+
+    @classmethod
+    def find_by_resource_path(cls, resource_path):
         try:
-            return next(scraper for scraper in cls.__subclasses__() if scraper.match(resource_path))(resource_path)
+            return next(scraper for scraper in cls.__subclasses__() if scraper.matching_resource_path(resource_path))(resource_path)
         except StopIteration:
             raise UnmatchedResourcePath(f"No match for '{resource_path}'")
 
     @classmethod
-    def match(cls, resource_path):
-        if cls.RE.match(resource_path):
+    def find_by_website_path(cls, website_path):
+        return next(scraper for scraper in cls.__subclasses__() if scraper.match_website_path(website_path))
+
+    @classmethod
+    def regex_from(cls, pattern):
+        return re.compile(
+          '^' +
+          re.sub('{([A-z]+)}', '(?P<\\1>[^/]+?)', pattern) +
+          '(?:[?](?P<query_params>.+))?' +
+          '$'
+        )
+
+    @classmethod
+    def resource_path_regex(cls):
+        return cls.regex_from(cls.RESOURCE_PATH_PATTERN)
+
+    @classmethod
+    def match_resource_path(cls, path):
+        return cls.regex_from(cls.RESOURCE_PATH_PATTERN).match(path)
+
+    @classmethod
+    def match_website_path(cls, path):
+        return cls.regex_from(cls.WEBSITE_PATH_PATTERN).match(path)
+
+    @classmethod
+    def matching_resource_path(cls, resource_path):
+        if cls.match_resource_path(resource_path):
             return cls(resource_path)
+
 
     def __init__(self, resource_path):
         self.resource_path = resource_path
-        m = self.__class__.RE.match(self.resource_path)
+        m = self.__class__.resource_path_regex().match(self.resource_path)
         if m:
             self.groupdict = m.groupdict()
 
@@ -74,10 +174,10 @@ class Scraper:
         return bs4.BeautifulSoup(get(self.resource_path), 'html.parser')
 
     def url(self):
-        return f'{URL_BASE}/{self.url_path()}'
+        return f'{URL_BASE}{self.website_path()}'
 
-    def url_path(self):
-        template = self.__class__.URL_PATH
+    def website_path(self):
+        template = self.__class__.WEBSITE_PATH_PATTERN
 
         if self.groupdict.get('query_params'):
             template += '?{query_params}'
@@ -116,17 +216,18 @@ class Scraper:
 
 
 class Programs(Scraper):
-    RE = re.compile(r'^programs$')
-    URL_PATH = 'explore/programs'
+    RESOURCE_PATH_PATTERN = '/programs'
+    WEBSITE_PATH_PATTERN = '/explore/programs'
 
     def generate(self):
         return {
             'data': [
                 {
-                    'id':        card.find('a'  , class_='card__anchor').attrs['href'].split('/')[-1],
-                    'title':     card.find('h1' , class_='card__title' ).find('a').text,
-                    'thumbnail': card.find('img'                       ).attrs.get('data-src'),
-                    'textbody':  card.find('p'                         ).text
+                    'resource_path': Scraper.resource_path_for(card.find('a'  , class_='card__anchor').attrs['href']),
+                    'type':          'program',
+                    'title':         card.find('h1' , class_='card__title' ).find('a').text,
+                    'thumbnail':     card.find('img'                       ).attrs.get('data-src'),
+                    'textbody':      card.find('p'                         ).text
                 }
                 for card in self.soup().findAll('div', class_='card clearfix')
             ],
@@ -134,8 +235,8 @@ class Programs(Scraper):
 
 
 class Program(Scraper):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)$')
-    URL_PATH = 'explore/programs/{program_id}'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}'
+    WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}'
 
     def generate(self):
         soup = self.soup()
@@ -158,19 +259,32 @@ class Program(Scraper):
             soup.find(class_='page-banner__time').text
         ))
 
+        # Aarrgh the website dragons strike again!
+        def map_path(path):
+            m = re.match('^/explore/(?P<collection>[^/]+?)/(?P<program>[^/]+?)#episode-selector', path)
+            if m:
+                d = m.groupdict()
+                if   d['collection'] == 'programs':
+                    return f"/explore/{d['collection']}/{d['program']}/episodes/page"
+                elif d['collection'] == 'podcasts':
+                    return f"/explore/{d['collection']}/{d['program']}/episodes"
+
         collections = [
             {
-                'id':   anchor.text.lower(),
+                'resource_path': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
+                'type': 'collection',
                 'title': ' - '.join((title, anchor.text)),
                 'thumbnail': thumbnail,
                 'textbody':  textbody,
             }
             for anchor in soup.find_all('a', class_='program-nav__anchor')
         ]
-        if soup.find('h1', string='Recent highlights'):
+        highlights = soup.find('a', string=re.compile('highlights'))
+        if highlights:
             collections.append(
                 {
-                    'id':    'segments',
+                    'resource_path': Scraper.resource_path_for(highlights.attrs['href']),
+                    'type': 'collection',
                     'title': ' - '.join((title, 'Segments')),
                     'thumbnail': thumbnail,
                     'textbody':  textbody,
@@ -194,38 +308,38 @@ class AudioItemGenerator:
         }
 
 class ProgramBroadcasts(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/broadcasts(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/programs/{program_id}/episodes/page'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}/broadcasts'
+    WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/page'
 
 
 class ProgramPodcasts(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/podcasts(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/podcasts/{program_id}/episodes'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}/podcasts'
+    WEBSITE_PATH_PATTERN = '/explore/podcasts/{program_id}/episodes'
 
 
 class ProgramSegments(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/segments(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/programs/{program_id}/highlights'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}/segments'
+    WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/highlights'
 
 
 class OnDemandSegments(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^segments(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'on-demand/segments'
+    RESOURCE_PATH_PATTERN = '/segments'
+    WEBSITE_PATH_PATTERN = '/on-demand/segments'
 
 
 class OnDemandBroadcasts(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^broadcasts(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'on-demand/episodes'
+    RESOURCE_PATH_PATTERN = '/broadcasts'
+    WEBSITE_PATH_PATTERN = '/on-demand/episodes'
 
 
 class Archives(Scraper, AudioItemGenerator):
-    RE = re.compile(r'^archives(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'on-demand/archives'
+    RESOURCE_PATH_PATTERN = '/archives'
+    WEBSITE_PATH_PATTERN = '/on-demand/archives'
 
 
 class ArchiveItem(Scraper):
-    RE = re.compile(r'^archives/(?P<item>.+)?$')
-    URL_PATH = 'on-demand/archives/{item}'
+    RESOURCE_PATH_PATTERN = '/archives/{item}'
+    WEBSITE_PATH_PATTERN = '/on-demand/archives/{item}'
 
     def generate(self):
         item = self.soup().find(class_='adaptive-banner__audio-component')
@@ -316,8 +430,8 @@ class ExternalMedia:
 
 
 class FeaturedAlbum(Scraper, ExternalMedia):
-    RE = re.compile(r'^featured_albums/(?P<album_id>[^/]+)$')
-    URL_PATH = 'explore/album-of-the-week/{album_id}'
+    RESOURCE_PATH_PATTERN = '/featured_albums/{album_id}'
+    WEBSITE_PATH_PATTERN = '/explore/album-of-the-week/{album_id}'
 
     def generate(self):
         pagesoup = self.soup()
@@ -340,7 +454,8 @@ class FeaturedAlbum(Scraper, ExternalMedia):
 
         data = [
             {
-                'id':        '',
+                'resource_path': self.resource_path,
+                'type':        'featured_album',
                 'title':     ' - '.join((album_artist, album_title)),
                 'artist':    album_artist,
                 'textbody':  album_copy,
@@ -363,18 +478,19 @@ class FeaturedAlbum(Scraper, ExternalMedia):
 
 
 class FeaturedAlbums(Scraper):
-    RE = re.compile(r'^featured_albums(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/album-of-the-week'
+    RESOURCE_PATH_PATTERN = '/featured_albums'
+    WEBSITE_PATH_PATTERN = '/explore/album-of-the-week'
 
     def generate(self):
         return {
             'data': [
                 {
-                    'id':        card.find('a'  , class_='card__anchor').attrs['href'].split('/')[-1],
-                    'title':     card.find('h1' , class_='card__title' ).find('a').text,
-                    'subtitle':  card.find(       class_='card__meta'  ).text,
-                    'thumbnail': card.find('img'                       ).attrs.get('data-src'),
-                    'textbody':  card.find('p'                         ).text
+                    'resource_path': Scraper.resource_path_for(card.find('a'  , class_='card__anchor').attrs['href']),
+                    'type':          'featured_album',
+                    'title':         card.find('h1' , class_='card__title' ).find('a').text,
+                    'subtitle':      card.find(       class_='card__meta'  ).text,
+                    'thumbnail':     card.find('img'                       ).attrs.get('data-src'),
+                    'textbody':      card.find('p'                         ).text
                 }
                 for card in self.soup().findAll('div', class_='card clearfix')
             ],
@@ -383,8 +499,8 @@ class FeaturedAlbums(Scraper):
 
 
 class NewsItems(Scraper):
-    RE = re.compile(r'^news_items(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/news-articles'
+    RESOURCE_PATH_PATTERN = '/news_items'
+    WEBSITE_PATH_PATTERN = '/explore/news-articles'
 
     def generate(self):
         return {
@@ -397,37 +513,37 @@ class NewsItems(Scraper):
 
 
 class NewsItem(Scraper):
-    RE = re.compile(r'^news_items/(?P<item>.+)?$')
-    URL_PATH = 'explore/news-articles/{item}'
+    RESOURCE_PATH_PATTERN = '/news_items/{item}'
+    WEBSITE_PATH_PATTERN = '/explore/news-articles/{item}'
 
 
 class ProgramBroadcastItem(Scraper):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/broadcasts/(?P<item>.+)?$')
-    URL_PATH = 'explore/programs/{program_id}/episodes/{item}'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}/broadcasts/{item}'
+    WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/{item}'
 
     def generate(self):
         return {'data': []}
 
 
 class ProgramPodcastItem(Scraper):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/podcasts/(?P<item>.+)?$')
-    URL_PATH = 'explore/podcasts/{program_id}/episodes/{item}'
+    RESOURCE_PATH_PATTERN = '/programs/{program_id}/podcasts/{item}'
+    WEBSITE_PATH_PATTERN = '/explore/podcasts/{program_id}/episodes/{item}'
 
     def generate(self):
         return {'data': []}
 
 
 class ProgramSegmentItem(Scraper):
-    RE = re.compile(r'^programs/(?P<program_id>[^/]+)/segments/(?P<item>.+)?$')
-    URL_PATH = 'on-demand/segments/{item}'
+    RESOURCE_PATH_PATTERN = '/segments/{item}'
+    WEBSITE_PATH_PATTERN = '/on-demand/segments/{item}'
 
     def generate(self):
         return {'data': []}
 
 
 class Schedule(Scraper):
-    RE = re.compile(r'^schedule(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/schedule'
+    RESOURCE_PATH_PATTERN = '/schedule'
+    WEBSITE_PATH_PATTERN = '/explore/schedule'
 
     def generate(self):
         soup = self.soup()
@@ -440,8 +556,8 @@ class Schedule(Scraper):
 
 
 class Search(Scraper):
-    RE = re.compile(r'^search(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'search'
+    RESOURCE_PATH_PATTERN = '/search'
+    WEBSITE_PATH_PATTERN = '/search'
 
     def generate(self):
         return {
@@ -454,18 +570,19 @@ class Search(Scraper):
 
 
 class Soundscapes(Scraper):
-    RE = re.compile(r'^soundscapes(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/soundscape'
+    RESOURCE_PATH_PATTERN = '/soundscapes'
+    WEBSITE_PATH_PATTERN = '/explore/soundscape'
 
     def generate(self):
         return {
             'data': [
                 {
-                    'id':        item.find('a').attrs.get('href').split('/')[-1],
-                    'title':     item.find('span').text,
-                    'subtitle':  item.find('span').text.split(' - ')[-1],
-                    'textbody':  item.find('p').text,
-                    'thumbnail': item.find('img').attrs.get('data-src'),
+                    'resource_path': Scraper.resource_path_for(item.find('a').attrs.get('href')),
+                    'type':          'soundscape',
+                    'title':         item.find('span').text,
+                    'subtitle':      item.find('span').text.split(' - ')[-1],
+                    'textbody':      item.find('p').text,
+                    'thumbnail':     item.find('img').attrs.get('data-src'),
                 }
                 for item in self.soup().findAll(class_='list-view__item')
             ],
@@ -474,8 +591,8 @@ class Soundscapes(Scraper):
 
 
 class Soundscape(Scraper, ExternalMedia):
-    RE = re.compile(r'^soundscapes/(?P<item>.+)?$')
-    URL_PATH = 'explore/soundscape/{item}'
+    RESOURCE_PATH_PATTERN = '/soundscapes/{item}'
+    WEBSITE_PATH_PATTERN = '/explore/soundscape/{item}'
 
     def generate(self):
         pagesoup = self.soup()
@@ -538,25 +655,36 @@ class Soundscape(Scraper, ExternalMedia):
         }
 
 
+class Topic(Resource):
+    @property
+    def title(self):
+        return self._itemobj.find('a').text
+
+    def attributes(self):
+        return {
+            'title': self.title
+        }
+
+
 class Topics(Scraper):
-    RE = re.compile(r'^topics$')
-    URL_PATH = ''
+    RESOURCE_PATH_PATTERN = '/topics'
+    WEBSITE_PATH_PATTERN = '/'
 
     def generate(self):
         return {
             'data': [
-                {
-                    'resource_path': item.find('a').attrs['href'],
-                    'name':          item.find('a').text,
-                }
+                Topic(item).to_dict()
                 for item in self.soup().findAll(class_='topic-list__item')
-            ]
+            ],
+            'links': {
+                'self': self.__class__.RESOURCE_PATH_PATTERN
+            },
         }
 
 
 class TopicsItem(Scraper):
-    RE = re.compile(r'^topics/(?P<topic>.+?)(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'topics/{topic}'
+    RESOURCE_PATH_PATTERN = '/topics/{topic}'
+    WEBSITE_PATH_PATTERN = '/topics/{topic}'
 
     def generate(self):
         return {
@@ -568,30 +696,50 @@ class TopicsItem(Scraper):
         }
 
 
-class TracksItem(Scraper):
-    RE = re.compile(r'^tracks/(?P<track_id>\d+)$')
-    URL_PATH = 'tracks/{track_id}'
-
-    def generate(self):
-        return {'data': []}
-
-
 class TracksSearch(Scraper):
-    RE = re.compile(r'^tracks/search[?](?P<query_params>.+)$')
-    URL_PATH = 'tracks/search'
+    RESOURCE_PATH_PATTERN = '/tracks/search'
+    WEBSITE_PATH_PATTERN = '/tracks/search'
 
     def generate(self):
         return {
             'data': [
-                SearchTrackItem(item).to_dict()
+                BroadcastTrack(item).to_dict()
                 for item in self.soup().findAll(class_='search-result')
             ],
         }
 
 
+class TracksItem(Scraper):
+    RESOURCE_PATH_PATTERN = '/tracks/{track_id}'
+    WEBSITE_PATH_PATTERN = '/tracks/{track_id}'
+
+    def generate(self):
+        return {'data': []}
+
+
+class Track(Resource):
+    def __init__(self, path, artist, title):
+        self._path = path
+        self.artist = artist
+        self.title = title
+
+    @property
+    def path(self):
+        return self._path
+
+    def id(self):
+        return self.path.split('/')[-1]
+
+    def attributes(self):
+        return {
+            'title':  self.title,
+            'artist': self.artist,
+        }
+
+
 class Events(Scraper):
-    RE = re.compile(r'^events(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'events'
+    RESOURCE_PATH_PATTERN = '/events'
+    WEBSITE_PATH_PATTERN = '/events'
 
     def generate(self):
         return {
@@ -604,18 +752,26 @@ class Events(Scraper):
 
 
 class EventItem(Scraper):
-    RE = re.compile(r'^events/(?P<item>.+)$')
-    URL_PATH = 'events/{item}'
+    RESOURCE_PATH_PATTERN = '/events/{item}'
+    WEBSITE_PATH_PATTERN = '/events/{item}'
 
     def generate(self):
         item = self.soup().find(class_='event')
         venue = item.find(class_='event__venue-address-details')
         eventdetails = item.find(class_='event__details-copy').get_text(' ').strip()
         textbody = item.find(class_='copy').get_text('\n')
+
+        flag_label = item.find(class_='flag-label')
+        if flag_label:
+            event_type = re.sub(' ', '-', flag_label.text).lower()
+        else:
+            event_type = None
+
         return {
             'data': [
                 {
                     'resource_path':  self.resource_path,
+                    'type':           event_type,
                     'title':          item.find(class_='event__title').text,
                     'venue':          venue.get_text(' ') if venue else '',
                     'textbody':       '\n'.join((eventdetails, textbody)),
@@ -625,16 +781,16 @@ class EventItem(Scraper):
 
 
 class Video(Scraper):
-    RE = re.compile(r'^videos/(?P<item>.+)$')
-    URL_PATH = 'explore/videos/{item}'
+    RESOURCE_PATH_PATTERN = '/videos/{item}'
+    WEBSITE_PATH_PATTERN = '/explore/videos/{item}'
 
     def generate(self):
         return {'data': []}
 
 
 class Videos(Scraper):
-    RE = re.compile(r'^videos(?:[?](?P<query_params>.+))?$')
-    URL_PATH = 'explore/videos'
+    RESOURCE_PATH_PATTERN = '/videos'
+    WEBSITE_PATH_PATTERN = '/explore/videos'
 
     def generate(self):
         return {'data': []}
@@ -649,7 +805,7 @@ class News:
 
     @property
     def resource_path(self):
-        return self._itemobj.find(class_='list-view__anchor').attrs['href']
+        return Scraper.resource_path_for(self._itemobj.find(class_='list-view__anchor').attrs['href'])
 
     @property
     def title(self):
@@ -677,12 +833,8 @@ class Event:
         self._itemobj = itemobj
 
     @property
-    def id(self):
-        return self._itemobj.find('a', class_='card__anchor').attrs['href'].split('/')[-1]
-
-    @property
     def resource_path(self):
-        return self._itemobj.find('a', class_='card__anchor').attrs['href']
+        return Scraper.resource_path_for(self._itemobj.find('a', class_='card__anchor').attrs['href'])
 
     @property
     def _itemtitle(self):
@@ -761,10 +913,9 @@ class Event:
 
     def to_dict(self):
         return {
-            'id':            self.id,
             'resource_path': self.resource_path,
             'title':         self.title,
-            'event_type':    self.event_type,
+            'type':          self.event_type,
             'thumbnail':     self.thumbnail,
             'date':          self.date,
             'venue':         self.venue,
@@ -778,8 +929,8 @@ class ScheduleItem:
         self._audio_item = AudioItem.factory(itemobj)
 
     @property
-    def href(self):
-        return self._itemobj.find('a').attrs['href']
+    def resource_path(self):
+        return Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])
 
     @property
     def start(self):
@@ -797,6 +948,7 @@ class ScheduleItem:
     def content(self):
         content = json.loads(self._itemobj.find(class_='hide-from-all').attrs['data-content'])
         content['title'] = content['name'] if 'name' in content.keys() else ''
+        content['type'] = 'program' if content['type'] == 'programs' else None  # Eeek
         return content
 
     @property
@@ -806,12 +958,12 @@ class ScheduleItem:
 
     def to_dict(self):
         return {
-                      **self.content,
-                      **self.audio_item,
-            'href':     self.href,
-            'start':    self.start,
-            'end':      self.end,
-            'textbody': self.textbody,
+                           **self.content,
+                           **self.audio_item,
+            'resource_path': self.resource_path,
+            'start':         self.start,
+            'end':           self.end,
+            'textbody':      self.textbody,
         }
 
 
@@ -827,19 +979,7 @@ class ItemType:
         }.get(default, default)
 
 
-class SearchItem:
-    def __init__(self, itemobj):
-        self._itemobj = itemobj
-
-    @property
-    def href(self):
-        return self._itemobj.find('a').attrs['href']
-
-    @property
-    def resource_path(self):
-        # TODO: map hrefs back to resource_paths
-        return self.href
-
+class SearchItem(Resource):
     @property
     def type(self):
         return ItemType.from_label(self._itemobj.find(class_='flag-label').text)
@@ -854,29 +994,22 @@ class SearchItem:
         if body:
             return "\n\n".join([item.text for item in body.children])
 
-    def to_dict(self):
+    def attributes(self):
         return {
-            'resource_path': self.resource_path,
-            'type':          self.type,
-            'title':         self.title,
-            'textbody':      self.textbody,
+            **Resource.attributes(self),
+            'textbody': self.textbody,
         }
 
 
-class SearchTrackItem(SearchItem):
-    RE = re.compile(r'Played (?P<played_date>[^/]+) by (?P<played_by>.+)View all plays$')
-
-    def __init__(self, itemobj):
-        self._itemobj = itemobj
+class BroadcastTrack(Resource):
+    def id(self):
+        return f'{SearchItem.id(self)}.{self.track.id()}'
 
     @property
     def title(self):
-        return self._itemobj.find(class_='search-result__track-title').text
+        return self.track.title
 
-    @property
-    def artist(self):
-        return self._itemobj.find(class_='search-result__track-artist').text
-
+    RE = re.compile(r'Played (?P<played_date>[^/]+) by (?P<played_by>.+)View all plays$')
     @property
     def played(self):
         return self.RE.match(self._itemobj.find(class_='search-result__meta-info').text)
@@ -890,26 +1023,50 @@ class SearchTrackItem(SearchItem):
         return self.played['played_by']
 
     @property
-    def play_link(self):
-        return self._itemobj.find(class_='search-result__meta-info').find('a').attrs['href']
+    def broadcast(self):
+        return Broadcast(Resource)
 
     @property
-    def resource_path(self):
-        return self.play_link
+    def track(self):
+        return Track(
+            Scraper.resource_path_for(self._itemobj.find(class_='search-result__meta-links').find('a').attrs['href']),
+            self._itemobj.find(class_='search-result__track-artist').text,
+            self._itemobj.find(class_='search-result__track-title').text,
+        )
 
-    @property
-    def track_link(self):
-        return self._itemobj.find(class_='search-result__meta-links').find('a').attrs['href']
-
-    def to_dict(self):
+    def attributes(self):
         return {
-            'title':         self.title,
-            'artist':        self.artist,
-            'played_date':   self.played_date,
-            'played_by':     self.played_by,
-            'resource_path': self.resource_path,
-            'track_link':    self.track_link,
+            'played_date':  self.played_date,
+            'played_by':    self.played_by,
         }
+
+    def relationships(self):
+        return {
+            'broadcast': {
+                'links': {
+                    'related': self.path
+                },
+                'data': {
+                    'type': 'broadcast',
+                    'id':  Resource.id(self),
+                },
+            },
+            'track': {
+                'links': {
+                    'related': self.track.path,
+                },
+                'data': {
+                    'type': self.track.type,
+                    'id':   self.track.id(),
+                },
+            },
+        }
+
+    def included(self):
+        return [
+            self.broadcast.to_dict(),
+            self.track.to_dict(),
+        ]
 
 
 class AudioItem:
@@ -932,26 +1089,39 @@ class AudioItem:
             itemobj = json.loads(view_playable)['items'][0]
 
             if   itemobj['type'] == 'clip':
-                item = Segment(itemobj, textbody)
+                obj = Segment(item, itemobj, textbody)
             elif itemobj['type'] == 'broadcast_episode':
-                item = Broadcast(itemobj, textbody)
+                obj = Broadcast(item, itemobj, textbody)
             elif itemobj['type'] == 'audio_archive_item':
-                item = Archive(itemobj, textbody)
+                obj = Archive(item, itemobj, textbody)
+            elif itemobj['type'] == 'podcast_episode':
+                obj = Podcast(item, itemobj, textbody)
             else:
-                item = AudioItem(itemobj, textbody)
-            return item.to_dict()
+                obj = AudioItem(item, itemobj, textbody)
+            return obj.to_dict()
         else:
             # Should we _also_ have a NonPlayable AudioItem ?
             return None
 
 
-    def __init__(self, itemobj, textbody):
+    def __init__(self, item, itemobj, textbody):
+        self._item = item
         self._itemobj = itemobj
         self._itemdata = itemobj['data']
         self.textbody = textbody
 
     @property
-    def id(self):
+    def resource_path(self):
+        card_anchor = self._item.find(class_='card__anchor')
+        if card_anchor:
+            return Scraper.resource_path_for(card_anchor.attrs['href'])
+
+    @property
+    def type(self):
+        return self.__class__.__name__.lower()
+
+    @property
+    def source_id(self):
         return self._itemobj['source_id']
 
     @property
@@ -1005,16 +1175,18 @@ class AudioItem:
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'title': self.title,
-            'subtitle': self.subtitle,
-            'textbody': self.textbody,
-            'date': self.date,
-            'year': self.year,
-            'aired': self.aired,
-            'duration': self.duration,
-            'url': self.url,
-            'thumbnail': self.thumbnail
+            'source_id':     self.source_id,
+            'resource_path': self.resource_path,
+            'type':          self.type,
+            'title':         self.title,
+            'subtitle':      self.subtitle,
+            'textbody':      self.textbody,
+            'date':          self.date,
+            'year':          self.year,
+            'aired':         self.aired,
+            'duration':      self.duration,
+            'url':           self.url,
+            'thumbnail':     self.thumbnail
         }
 
 
@@ -1025,6 +1197,9 @@ class Broadcast(AudioItem):
     ''
 
 class Segment(AudioItem):
+    ''
+
+class Podcast(AudioItem):
     ''
 
 

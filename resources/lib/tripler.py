@@ -34,7 +34,7 @@ class TripleR():
         elif 'settings' in segments:
             Addon().openSettings()
         else:
-            path = '/'.join(segments) + str(sys.argv[2])
+            path = '/' + '/'.join(segments) + str(sys.argv[2])
             parsed = self.parse_programs(**Scraper.call(path), args=args, segments=segments)
             if parsed:
                 return parsed
@@ -102,8 +102,7 @@ class TripleR():
                 mediatype = 'song'
                 info_type = 'video'
             else:
-                pathid = ('/' if menuitem.get('id') else '') + menuitem.get('id')
-                pathurl = '{}/{}{}'.format(self.url, '/'.join(segments), pathid)
+                pathurl = '{}{}'.format(self.url, menuitem.get('resource_path', '/'))
                 is_playable = False
                 mediatype = ''
                 info_type = 'video'
