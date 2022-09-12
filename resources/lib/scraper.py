@@ -1,24 +1,5 @@
 #!/usr/bin/env python
-"""
-# Example Usages:
-
-scraper.py programs
-scraper.py programs/breakfasters
-scraper.py programs/breakfasters/broadcasts?page=1
-scraper.py programs/breakfasters/broadcasts?page=2
-scraper.py programs/breakfasters/podcasts?page=1
-scraper.py programs/breakfasters/segments?page=1
-scraper.py programs/maps
-scraper.py programs/maps/broadcasts?page=1
-scraper.py programs/maps/segments?page=1
-scraper.py segments?page=1
-scraper.py broadcasts?page=1
-scraper.py archives?page=1
-scraper.py featured_albums?page=1
-scraper.py featured_albums/naima-bock-giant-palm
-"""
-
-import bs4, time, json, re, sys
+import bs4, time, json, re, sys, datetime
 
 IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
@@ -29,6 +10,8 @@ else:
     from urllib2 import urlencode
     from urlparse import parse_qs
 
+
+DATE_FORMAT = '%Y-%m-%d'
 
 URL_BASE = 'https://www.rrr.org.au'
 
@@ -239,6 +222,7 @@ class Archives(Scraper, AudioItemGenerator):
     RE = re.compile(r'^archives(?:[?](?P<query_params>.+))?$')
     URL_PATH = 'on-demand/archives'
 
+
 class ArchiveItem(Scraper):
     RE = re.compile(r'^archives/(?P<item>.+)?$')
     URL_PATH = 'on-demand/archives/{item}'
@@ -258,8 +242,8 @@ class ExternalMedia:
     BANDCAMP_ALBUM_ART_URL           = 'https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=a&tralbum_id={}'
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
-    SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/play/'
-    SOUNDCLOUD_PLUGIN_FORMAT         = '{}?playlist_id={}'
+    SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/'
+    SOUNDCLOUD_PLUGIN_FORMAT         = '{}?action=call&call=/playlists/{}'
 
     RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
     YOUTUBE_PLUGIN_BASE_URL          = 'plugin://plugin.video.youtube/play/'
@@ -398,6 +382,25 @@ class FeaturedAlbums(Scraper):
         }
 
 
+class NewsItems(Scraper):
+    RE = re.compile(r'^news_items(?:[?](?P<query_params>.+))?$')
+    URL_PATH = 'explore/news-articles'
+
+    def generate(self):
+        return {
+            'data': [
+                News(item).to_dict()
+                for item in self.soup().findAll(class_='list-view__item')
+            ],
+            'links': self.pagination(),
+        }
+
+
+class NewsItem(Scraper):
+    RE = re.compile(r'^news_items/(?P<item>.+)?$')
+    URL_PATH = 'explore/news-articles/{item}'
+
+
 class ProgramBroadcastItem(Scraper):
     RE = re.compile(r'^programs/(?P<program_id>[^/]+)/broadcasts/(?P<item>.+)?$')
     URL_PATH = 'explore/programs/{program_id}/episodes/{item}'
@@ -436,6 +439,20 @@ class Schedule(Scraper):
         }
 
 
+class Search(Scraper):
+    RE = re.compile(r'^search(?:[?](?P<query_params>.+))?$')
+    URL_PATH = 'search'
+
+    def generate(self):
+        return {
+            'data': [
+                SearchItem(item).to_dict()
+                for item in self.soup().findAll(class_='search-result')
+            ],
+            'links': self.pagination(),
+        }
+
+
 class Soundscapes(Scraper):
     RE = re.compile(r'^soundscapes(?:[?](?P<query_params>.+))?$')
     URL_PATH = 'explore/soundscape'
@@ -463,18 +480,31 @@ class Soundscape(Scraper, ExternalMedia):
     def generate(self):
         pagesoup = self.soup()
 
-        iframes = [
-            {
-                'src': heading.find_next_sibling().find('iframe').attrs.get('src'),
-                'attrs': {
-                    'id':             ' '.join(heading.text.split('**')[0].split(' - ')),
-                    'title':          heading.text.split('**')[0],
-                    'artist':         heading.text.split(' - ')[0],
-                    'featured_album': heading.text.split('**')[1] if len(heading.text.split('**')) > 1 else '',
-                }
+        iframes = []
+        section = pagesoup.find('section', class_='copy')
+        for heading in section.findAll('h2', recursive=False) + section.findAll('p', recursive=False):
+            iframe = heading.find_next_sibling()
+            while iframe != None and iframe.find('iframe') == None:
+                iframe = iframe.find_next_sibling()
+            if iframe == None or len(heading.text) < 2:
+                break
+
+            aotw = len(heading.text.split('**')) > 1
+
+            attrs = {
+                'id':             ' '.join(heading.text.split('**')[0].split(' - ')),
+                'title':          heading.text.split('**')[0],
+                'artist':         heading.text.split(' - ')[0],
+                'featured_album': heading.text.split('**')[1] if aotw else '',
             }
-            for heading in pagesoup.find('section', class_='copy').findAll('h2', recursive=False) if len(heading.text) > 2
-        ]
+            media = {
+                'src': iframe.find('iframe').attrs.get('src'),
+                'attrs': attrs,
+            }
+            if aotw:
+                iframes.insert(0, media)
+            else:
+                iframes.append(media)
 
         media_items = self.media_items(iframes, fetch_album_art=True)
         soundscape_date = pagesoup.find(class_='news-item__title').text.split(' - ')[-1]
@@ -508,12 +538,55 @@ class Soundscape(Scraper, ExternalMedia):
         }
 
 
+class Topics(Scraper):
+    RE = re.compile(r'^topics$')
+    URL_PATH = ''
+
+    def generate(self):
+        return {
+            'data': [
+                {
+                    'resource_path': item.find('a').attrs['href'],
+                    'name':          item.find('a').text,
+                }
+                for item in self.soup().findAll(class_='topic-list__item')
+            ]
+        }
+
+
+class TopicsItem(Scraper):
+    RE = re.compile(r'^topics/(?P<topic>.+?)(?:[?](?P<query_params>.+))?$')
+    URL_PATH = 'topics/{topic}'
+
+    def generate(self):
+        return {
+            'data': [
+                SearchItem(item).to_dict()
+                for item in self.soup().findAll(class_='search-result')
+            ],
+            'links': self.pagination(),
+        }
+
+
 class TracksItem(Scraper):
-    RE = re.compile(r'^tracks/(?P<item>.+)$')
-    URL_PATH = 'tracks/{item}'
+    RE = re.compile(r'^tracks/(?P<track_id>\d+)$')
+    URL_PATH = 'tracks/{track_id}'
 
     def generate(self):
         return {'data': []}
+
+
+class TracksSearch(Scraper):
+    RE = re.compile(r'^tracks/search[?](?P<query_params>.+)$')
+    URL_PATH = 'tracks/search'
+
+    def generate(self):
+        return {
+            'data': [
+                SearchTrackItem(item).to_dict()
+                for item in self.soup().findAll(class_='search-result')
+            ],
+        }
 
 
 class Events(Scraper):
@@ -542,10 +615,10 @@ class EventItem(Scraper):
         return {
             'data': [
                 {
-                    'id':       '',
-                    'title':    item.find(class_='event__title').text,
-                    'venue':    venue.get_text(' ') if venue else '',
-                    'textbody': '\n'.join((eventdetails, textbody)),
+                    'resource_path':  self.resource_path,
+                    'title':          item.find(class_='event__title').text,
+                    'venue':          venue.get_text(' ') if venue else '',
+                    'textbody':       '\n'.join((eventdetails, textbody)),
                 }
             ],
         }
@@ -570,6 +643,34 @@ class Videos(Scraper):
 
 ### Scrapers ##############################################
 
+class News:
+    def __init__(self, itemobj):
+        self._itemobj = itemobj
+
+    @property
+    def resource_path(self):
+        return self._itemobj.find(class_='list-view__anchor').attrs['href']
+
+    @property
+    def title(self):
+        return self._itemobj.find(class_='list-view__title').text
+
+    @property
+    def type(self):
+        return 'news_item'
+
+    @property
+    def textbody(self):
+        return self._itemobj.find(class_='list-view__summary').text
+
+    def to_dict(self):
+        return {
+            'resource_path': self.resource_path,
+            'title':         self.title,
+            'type':          self.type,
+            'textbody':      self.textbody,
+        }
+
 
 class Event:
     def __init__(self, itemobj):
@@ -578,6 +679,10 @@ class Event:
     @property
     def id(self):
         return self._itemobj.find('a', class_='card__anchor').attrs['href'].split('/')[-1]
+
+    @property
+    def resource_path(self):
+        return self._itemobj.find('a', class_='card__anchor').attrs['href']
 
     @property
     def _itemtitle(self):
@@ -636,7 +741,7 @@ class Event:
     @property
     def date(self):
         if self._itemtime:
-            return time.strftime('%d.%m.%Y', self._itemtime)
+            return time.strftime(DATE_FORMAT, self._itemtime)
         else:
             return None
 
@@ -656,13 +761,14 @@ class Event:
 
     def to_dict(self):
         return {
-            'id':         self.id,
-            'title':      self.title,
-            'event_type': self.event_type,
-            'thumbnail':  self.thumbnail,
-            'date':       self.date,
-            'venue':      self.venue,
-            'textbody':   self.textbody,
+            'id':            self.id,
+            'resource_path': self.resource_path,
+            'title':         self.title,
+            'event_type':    self.event_type,
+            'thumbnail':     self.thumbnail,
+            'date':          self.date,
+            'venue':         self.venue,
+            'textbody':      self.textbody,
         }
 
 
@@ -706,6 +812,103 @@ class ScheduleItem:
             'start':    self.start,
             'end':      self.end,
             'textbody': self.textbody,
+        }
+
+
+class ItemType:
+    def from_label(val):
+        default = "_".join(val.lower().split())
+        return {
+            'album_of_the_week': 'featured_album',
+            'audio_archive':     'archive',
+            'broadcast_episode': 'broadcast',
+            'news':              'news_item',
+            'podcast_episode':   'podcast',
+        }.get(default, default)
+
+
+class SearchItem:
+    def __init__(self, itemobj):
+        self._itemobj = itemobj
+
+    @property
+    def href(self):
+        return self._itemobj.find('a').attrs['href']
+
+    @property
+    def resource_path(self):
+        # TODO: map hrefs back to resource_paths
+        return self.href
+
+    @property
+    def type(self):
+        return ItemType.from_label(self._itemobj.find(class_='flag-label').text)
+
+    @property
+    def title(self):
+        return self._itemobj.find(class_='search-result__title').text
+
+    @property
+    def textbody(self):
+        body = self._itemobj.find(class_='search-result__body')
+        if body:
+            return "\n\n".join([item.text for item in body.children])
+
+    def to_dict(self):
+        return {
+            'resource_path': self.resource_path,
+            'type':          self.type,
+            'title':         self.title,
+            'textbody':      self.textbody,
+        }
+
+
+class SearchTrackItem(SearchItem):
+    RE = re.compile(r'Played (?P<played_date>[^/]+) by (?P<played_by>.+)View all plays$')
+
+    def __init__(self, itemobj):
+        self._itemobj = itemobj
+
+    @property
+    def title(self):
+        return self._itemobj.find(class_='search-result__track-title').text
+
+    @property
+    def artist(self):
+        return self._itemobj.find(class_='search-result__track-artist').text
+
+    @property
+    def played(self):
+        return self.RE.match(self._itemobj.find(class_='search-result__meta-info').text)
+
+    @property
+    def played_date(self):
+        return datetime.datetime.strptime(self.played['played_date'], '%A %d %b %Y').strftime('%Y-%m-%d')
+
+    @property
+    def played_by(self):
+        return self.played['played_by']
+
+    @property
+    def play_link(self):
+        return self._itemobj.find(class_='search-result__meta-info').find('a').attrs['href']
+
+    @property
+    def resource_path(self):
+        return self.play_link
+
+    @property
+    def track_link(self):
+        return self._itemobj.find(class_='search-result__meta-links').find('a').attrs['href']
+
+    def to_dict(self):
+        return {
+            'title':         self.title,
+            'artist':        self.artist,
+            'played_date':   self.played_date,
+            'played_by':     self.played_by,
+            'resource_path': self.resource_path,
+            'track_link':    self.track_link,
         }
 
 
@@ -764,20 +967,16 @@ class AudioItem:
         return time.strptime(self._itemdata['subtitle'], '%d %B %Y')
 
     @property
-    def _itemtimestr(self):
-        return time.strftime('%Y-%m-%d', self._itemtime)
-
-    @property
     def date(self):
-        return time.strftime('%d.%m.%Y', self._itemtime)
+        return time.strftime(DATE_FORMAT, self._itemtime)
 
     @property
     def year(self):
-        return int(self._itemtimestr[0:4])
+        return self._itemtime[0]
 
     @property
     def aired(self):
-        return self._itemtimestr
+        return self.date
 
     @property
     def duration(self):
@@ -831,4 +1030,4 @@ class Segment(AudioItem):
 
 if __name__ == "__main__":
     stderr = True
-    print(json.dumps(Scraper.call(sys.argv[1])['data']))
+    print(json.dumps(Scraper.call(sys.argv[1])))

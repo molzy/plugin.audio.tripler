@@ -94,7 +94,7 @@ class TripleR():
             if menuitem.get('aired'):
                 aired = self.plugin.get_string(30006) % (menuitem['aired'])
             else:
-                aired = ''
+                aired = menuitem.get('date', '')
 
             if menuitem.get('url'):
                 pathurl = menuitem.get('url')
@@ -108,16 +108,21 @@ class TripleR():
                 mediatype = ''
                 info_type = 'video'
 
+            date, year = menuitem.get('date', ''), menuitem.get('year', '')
+            if date:
+                date = time.strftime('%d.%m.%Y', time.strptime(date, '%Y-%m-%d'))
+                year = date[0]
+
             item = {
                 'label': title,
                 'label2': aired,
                 'info_type': info_type,
                 'info': {
-                    'count': menuitem['id'],
+                    'count': menuitem.get('id', ''),
                     'title': title,
                     'plot': textbody,
-                    'date': menuitem.get('date', ''),
-                    'year': menuitem.get('year', ''),
+                    'date': date,
+                    'year': year,
                     'premiered': aired,
                     'aired': aired,
                     'duration': menuitem.get('duration', ''),
