@@ -547,11 +547,14 @@ class Schedule(Scraper):
 
     def generate(self):
         soup = self.soup()
+        date = soup.find(class_='calendar__hidden-input').attrs.get('value')
+        prevdate, nextdate = [x.find('a').attrs.get('href').split('=')[-1] for x in soup.findAll(class_='page-nav__item')]
         return {
             'data': [
                 ScheduleItem(item).to_dict()
                 for item in self.soup().findAll(class_='list-view__item')
             ],
+            'links': self.pagination(pagekey='date', selfval=date, nextval=prevdate),
         }
 
 
@@ -599,7 +602,7 @@ class Soundscape(Scraper, ExternalMedia):
 
         iframes = []
         section = pagesoup.find('section', class_='copy')
-        for heading in section.findAll('h2', recursive=False) + section.findAll('p', recursive=False):
+        for heading in section.findAll(['h2', 'p'], recursive=False):
             iframe = heading.find_next_sibling()
             while iframe != None and iframe.find('iframe') == None:
                 iframe = iframe.find_next_sibling()
