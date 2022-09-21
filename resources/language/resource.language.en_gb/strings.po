@@ -51,12 +51,16 @@ msgctxt "#30007"
 msgid "Dated %s, Melbourne time."
 msgstr ""
 
-msgctxt "#30010"
+msgctxt "#30009"
 msgid "Settings"
 msgstr ""
 
+msgctxt "#30010"
+msgid "Subscriber Account"
+msgstr ""
+
 msgctxt "#30011"
-msgid "Account"
+msgid "Use Account"
 msgstr ""
 
 msgctxt "#30012"
@@ -67,34 +71,90 @@ msgctxt "#30013"
 msgid "Password"
 msgstr ""
 
+msgctxt "#30014"
+msgid "Hide Login Messages"
+msgstr ""
+
 msgctxt "#30032"
 msgid "Browse by Program"
 msgstr ""
 
 msgctxt "#30033"
-msgid "Latest Programs"
+msgid "Browse by Date"
 msgstr ""
 
 msgctxt "#30034"
-msgid "Latest Segments"
+msgid "Latest Programs"
 msgstr ""
 
 msgctxt "#30035"
-msgid "Audio Archives"
+msgid "Latest Segments"
 msgstr ""
 
 msgctxt "#30036"
-msgid "Album Of The Week"
+msgid "Audio Archives"
 msgstr ""
 
 msgctxt "#30037"
-msgid "Soundscapes"
+msgid "Album Of The Week"
 msgstr ""
 
 msgctxt "#30038"
-msgid "Schedule"
+msgid "Soundscapes"
 msgstr ""
 
 msgctxt "#30039"
 msgid "Events"
+msgstr ""
+
+msgctxt "#30040"
+msgid "Subscriber Giveaways"
+msgstr ""
+
+msgctxt "#30069"
+msgid "Enter Giveaway"
+msgstr ""
+
+msgctxt "#30070"
+msgid "Select to enter this giveaway."
+msgstr ""
+
+msgctxt "#30071"
+msgid "Giveaway Entered"
+msgstr ""
+
+msgctxt "#30072"
+msgid "Thanks for being a Triple R subscriber!"
+msgstr ""
+
+msgctxt "#30073"
+msgid "Cannot Enter Giveaway"
+msgstr ""
+
+msgctxt "#30074"
+msgid "Already entered!"
+msgstr ""
+
+msgctxt "#30075"
+msgid "Is your subscription active?"
+msgstr ""
+
+msgctxt "#30076"
+msgid "Subscribe and login to enter!"
+msgstr ""
+
+msgctxt "#30077"
+msgid "%s logged in"
+msgstr ""
+
+msgctxt "#30078"
+msgid "Thanks for subscribing!"
+msgstr ""
+
+msgctxt "#30079"
+msgid "Login failure"
+msgstr ""
+
+msgctxt "#30080"
+msgid "%s could not log in"
 msgstr ""

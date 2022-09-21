@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import bs4, time, json, re, sys, datetime
+import bs4, time, json, re, os, sys, datetime
 # from marshmallow_jsonapi import Schema, fields
 
 
@@ -775,6 +775,48 @@ class EventItem(Scraper):
                     'title':          item.find(class_='event__title').text,
                     'venue':          venue.get_text(' ') if venue else '',
                     'textbody':       '\n'.join((eventdetails, textbody)),
+                }
+            ],
+        }
+
+
+class Giveaways(Scraper):
+    RESOURCE_PATH_PATTERN = '/giveaways'
+    WEBSITE_PATH_PATTERN = '/subscriber-giveaways'
+
+    def generate(self):
+        return {
+            'data': [
+                {
+                    'resource_path': Scraper.resource_path_for(item.find('a').attrs.get('href')),
+                    'type':          'giveaway',
+                    'title':         item.find('span').text,
+                    'textbody':      item.find('p').text,
+                    'thumbnail':     item.find('img').attrs.get('data-src'),
+                }
+                for item in self.soup().findAll(class_='list-view__item')
+            ],
+        }
+
+
+class Giveaway(Scraper):
+    RESOURCE_PATH_PATTERN = '/giveaways/{giveaway}'
+    WEBSITE_PATH_PATTERN = '/subscriber-giveaways/{giveaway}'
+
+    def generate(self):
+        item = self.soup().find(class_='subscriber_giveaway')
+        banner = self.soup().find(class_='compact-banner')
+        closes = banner.find(class_='compact-banner__date').text
+        textbody = item.find(class_='subscriber-giveaway__copy').get_text(' ')
+
+        return {
+            'data': [
+                {
+                    'resource_path':  '/'.join((self.resource_path, 'entries')),
+                    'type':           'giveaway',
+                    'title':          banner.find(class_='compact-banner__heading').text,
+                    'textbody':       f'{closes}\n\n{textbody}',
+                    'thumbnail':      item.find(class_='summary-inset__artwork').attrs.get('src'),
                 }
             ],
         }

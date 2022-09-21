@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <category label="30010">
+        <setting label="30011" type="bool" id="use-account"     default="false" />
+        <setting label="30012" type="text" id="username"        default=""      enable="!eq(-1,false)" />
+        <setting label="30013" type="text" id="password"        default=""      enable="!eq(-2,false)" option="hidden" />
+        <setting label="30014" type="bool" id="hide-login-msgs" default="false" enable="!eq(-3,false)" />
+    </category>
+</settings>
