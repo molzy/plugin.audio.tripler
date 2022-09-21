@@ -1,9 +1,55 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<settings>
-    <category label="30010">
-        <setting label="30011" type="bool" id="use-account"     default="false" />
-        <setting label="30012" type="text" id="username"        default=""      enable="!eq(-1,false)" />
-        <setting label="30013" type="text" id="password"        default=""      enable="!eq(-2,false)" option="hidden" />
-        <setting label="30014" type="bool" id="hide-login-msgs" default="false" enable="!eq(-3,false)" />
-    </category>
+<?xml version="1.0" ?>
+<settings version="1">
+	<section id="plugin.audio.tripler">
+		<category id="subscriber account" label="30010" help="">
+			<group id="1">
+				<setting id="use-account" type="boolean" label="30011" help="">
+					<level>0</level>
+					<default>false</default>
+					<control type="toggle"/>
+				</setting>
+				<setting id="username" type="string" label="30012" help="">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<dependencies>
+						<dependency type="enable">
+							<condition operator="!is" setting="use-account">false</condition>
+						</dependency>
+					</dependencies>
+					<control type="edit" format="string">
+						<heading>30012</heading>
+					</control>
+				</setting>
+				<setting id="password" type="string" label="30013" help="">
+					<level>0</level>
+					<default/>
+					<constraints>
+						<allowempty>true</allowempty>
+					</constraints>
+					<dependencies>
+						<dependency type="enable">
+							<condition operator="!is" setting="use-account">false</condition>
+						</dependency>
+					</dependencies>
+					<control type="edit" format="string">
+						<heading>30013</heading>
+						<hidden>true</hidden>
+					</control>
+				</setting>
+				<setting id="hide-login-msgs" type="boolean" label="30014" help="">
+					<level>0</level>
+					<default>false</default>
+					<dependencies>
+						<dependency type="enable">
+							<condition operator="!is" setting="use-account">false</condition>
+						</dependency>
+					</dependencies>
+					<control type="toggle"/>
+				</setting>
+			</group>
+		</category>
+	</section>
 </settings>
