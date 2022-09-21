@@ -111,6 +111,30 @@ msgctxt "#30040"
 msgid "Subscriber Giveaways"
 msgstr ""
 
+msgctxt "#30059"
+msgid "Tomorrow (%s)"
+msgstr ""
+
+msgctxt "#30060"
+msgid "Today (%s)"
+msgstr ""
+
+msgctxt "#30061"
+msgid "Yesterday (%s)"
+msgstr ""
+
+msgctxt "#30062"
+msgid "%s (%s)"
+msgstr ""
+
+msgctxt "#30063"
+msgid "This Month (%s)"
+msgstr ""
+
+msgctxt "#30064"
+msgid "This Year (%s)"
+msgstr ""
+
 msgctxt "#30069"
 msgid "Enter Giveaway"
 msgstr ""

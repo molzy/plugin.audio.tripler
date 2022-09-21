@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 import time, sys, os
-from datetime import datetime
 from xbmcswift2 import Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
@@ -83,6 +83,31 @@ class TripleR():
         }
         return item
 
+    def browse_by_date(self, currentdate):
+        if len(currentdate) < 1:
+            return []
+        base = f'{self.url}/schedule?date='
+        current = datetime(*(time.strptime(currentdate, '%Y-%m-%d')[0:6]))
+
+        items = []
+        for day in range(0, 4):
+            daydelta             = current - datetime.today()
+            daydate              = current - timedelta(days=day)
+            dayname, daydatestr  = datetime.strftime(daydate, '%A,%Y-%m-%d').split(',')
+            relativeday          = day + abs(daydelta.days)
+            if relativeday < 0 or relativeday > 2:
+                label = self.plugin.get_string(30062) % (dayname, daydatestr)
+            else:
+                label = self.plugin.get_string(30059 + relativeday) % (daydatestr)
+
+            items.append(
+                {
+                    'label': label,
+                    'path': f'{base}{daydatestr}'
+                }
+            )
+
+        return items
 
     def parse_programs(self, data, args, segments, links=None):
         items = []
@@ -171,7 +196,10 @@ class TripleR():
             listitem = ListItem.from_dict(**item)
             items.append(listitem)
 
-        if links and links.get('next'):
+        if 'schedule' in segments:
+            pagedate = links.get('self', '?date=').split('?date=')[-1]
+            [items.insert(0, item) for item in self.browse_by_date(pagedate)]
+        elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
                     items.append(
