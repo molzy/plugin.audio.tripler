@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import time, sys, os
+from datetime import datetime
 from xbmcswift2 import Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
@@ -105,6 +106,15 @@ class TripleR():
             if menuitem.get('type') == 'giveaway' and 'entries' in menuitem.get('resource_path', '').split('/'):
                 title += ' ({})'.format(self.plugin.get_string(30069))
                 textbody  = '\n'.join((self.plugin.get_string(30070), textbody))
+
+            if menuitem.get('start') and menuitem.get('end'):
+                datestart = datetime.fromisoformat(menuitem['start'])
+                dateend   = datetime.fromisoformat(menuitem['end'])
+                start     = datetime.strftime(datestart, '%H:%M')
+                end       = datetime.strftime(dateend,   '%H:%M')
+                textbody  = '\n'.join((f'{start} - {end}', textbody))
+                title     = ' - '.join((start, end, title))
+
 
             if menuitem.get('aired'):
                 aired     = self.plugin.get_string(30006) % (menuitem['aired'])
