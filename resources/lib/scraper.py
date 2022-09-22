@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import bs4, time, json, re, os, sys, datetime
+import bs4, time, json, re, sys, datetime
 # from marshmallow_jsonapi import Schema, fields
 
 
@@ -1069,14 +1069,18 @@ class BroadcastTrack(Resource):
 
     @property
     def broadcast(self):
-        return Broadcast(Resource)
+        return Broadcast(
+            Scraper.resource_path_for(self._itemobj.find(class_='search-result__meta-info').find('a', recursive=False).attrs['href']),
+            self._itemobj.find(class_='search-result__track-artist').text,
+            self._itemobj.find(class_='search-result__track-title').text,
+        )
 
     @property
     def track(self):
         return Track(
             Scraper.resource_path_for(self._itemobj.find(class_='search-result__meta-links').find('a').attrs['href']),
-            self._itemobj.find(class_='search-result__track-artist').text,
-            self._itemobj.find(class_='search-result__track-title').text,
+            self._itemobj,
+            '{} - {}'.format(self.played['played_by'], self.played['played_date']),
         )
 
     def attributes(self):
