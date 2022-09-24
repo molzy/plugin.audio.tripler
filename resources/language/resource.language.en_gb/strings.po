@@ -135,6 +135,10 @@ msgctxt "#30064"
 msgid "This Year (%s)"
 msgstr ""
 
+msgctxt "#30065"
+msgid "Select Date (%s)"
+msgstr ""
+
 msgctxt "#30069"
 msgid "Enter Giveaway"
 msgstr ""

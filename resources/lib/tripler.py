@@ -35,7 +35,17 @@ class TripleR():
         args = parse_qs(sys.argv[2][1:])
         segments = sys.argv[0].split('/')[3:]
         xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGINFO)
-        path = '/' + '/'.join(segments) + str(sys.argv[2])
+
+        if 'schedule' in segments and args.get('picker'):
+            date = self.select_date(args.get('picker')[0])
+            if date:
+                args['date'] = date
+
+        if args.get('picker'):
+            del args['picker']
+
+        path = '/{}{}{}'.format('/'.join(segments), '?' if args else '', urlencode(args, doseq=True))
+
         if len(segments[0]) < 1:
             return self.main_menu()
         elif 'settings' in segments:
@@ -83,31 +93,19 @@ class TripleR():
         }
         return item
 
-    def browse_by_date(self, currentdate):
-        if len(currentdate) < 1:
-            return []
-        base = f'{self.url}/schedule?date='
-        current = datetime(*(time.strptime(currentdate, '%Y-%m-%d')[0:6]))
+    def select_date(self, self_date):
+        self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
+        dialog_title    = self.plugin.get_string(30065) % (self.plugin.get_string(30033))
+        picked_date_str = xbmcgui.Dialog().input(dialog_title, defaultt=str(self_date_str), type=xbmcgui.INPUT_DATE)
 
-        items = []
-        for day in range(0, 4):
-            daydelta             = current - datetime.today()
-            daydate              = current - timedelta(days=day)
-            dayname, daydatestr  = datetime.strftime(daydate, '%A,%Y-%m-%d').split(',')
-            relativeday          = day + abs(daydelta.days)
-            if relativeday < 0 or relativeday > 2:
-                label = self.plugin.get_string(30062) % (dayname, daydatestr)
-            else:
-                label = self.plugin.get_string(30059 + relativeday) % (daydatestr)
+        if picked_date_str:
+            date_str    = '-'.join([i.zfill(2) for i in picked_date_str.replace(' ', '').split('/')[::-1]])
+            current     = datetime(*(time.strptime(date_str, '%Y-%m-%d')[0:6]))
+            daydelta    = current - datetime.utcnow() + timedelta(hours=10)
+            if daydelta.days != -1:
+                return date_str
 
-            items.append(
-                {
-                    'label': label,
-                    'path': f'{base}{daydatestr}'
-                }
-            )
-
-        return items
+        return None
 
     def parse_programs(self, data, args, segments, links=None):
         items = []
@@ -197,8 +195,13 @@ class TripleR():
             items.append(listitem)
 
         if 'schedule' in segments:
-            pagedate = links.get('self', '?date=').split('?date=')[-1]
-            [items.insert(0, item) for item in self.browse_by_date(pagedate)]
+            self_date = links.get('self', '?date=').split('?date=')[-1]
+            items.insert(0,
+                {
+                    'label': self.plugin.get_string(30065) % (self_date),
+                    'path': f'{self.url}/schedule?picker={self_date}'
+                }
+            )
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
