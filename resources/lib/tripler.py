@@ -101,7 +101,7 @@ class TripleR():
         if picked_date_str:
             date_str    = '-'.join([i.zfill(2) for i in picked_date_str.replace(' ', '').split('/')[::-1]])
             current     = datetime(*(time.strptime(date_str, '%Y-%m-%d')[0:6]))
-            daydelta    = current - datetime.utcnow() + timedelta(hours=10)
+            daydelta    = current - datetime.utcnow() + timedelta(hours=10 + 6)
             if daydelta.days != -1:
                 return date_str
 
