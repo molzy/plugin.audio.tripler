@@ -202,6 +202,14 @@ class TripleR():
                     'path': f'{self.url}/schedule?picker={self_date}'
                 }
             )
+        elif 'giveaways' in segments and len(segments) < 2 and not self.login():
+            items.insert(0,
+                {
+                    'label': self.plugin.get_string(30081),
+                    'path': f'{self.url}/settings',
+                    'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
+                }
+            )
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):

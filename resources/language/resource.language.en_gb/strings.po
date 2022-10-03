@@ -186,3 +186,7 @@ msgstr ""
 msgctxt "#30080"
 msgid "%s could not log in"
 msgstr ""
+
+msgctxt "#30081"
+msgid "https://www.rrr.org.au/subscribe - Subscribe and login to enter the below giveaways!"
+msgstr ""
