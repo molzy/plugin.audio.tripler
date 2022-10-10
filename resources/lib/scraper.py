@@ -215,26 +215,23 @@ class Scraper:
 
 
 
-class Programs(Scraper):
+class ProgramsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/programs'
     WEBSITE_PATH_PATTERN = '/explore/programs'
 
     def generate(self):
         return {
             'data': [
-                {
-                    'resource_path': Scraper.resource_path_for(card.find('a'  , class_='card__anchor').attrs['href']),
-                    'type':          'program',
-                    'title':         card.find('h1' , class_='card__title' ).find('a').text,
-                    'thumbnail':     card.find('img'                       ).attrs.get('data-src'),
-                    'textbody':      card.find('p'                         ).text
-                }
-                for card in self.soup().findAll('div', class_='card clearfix')
+                Program(item).to_dict()
+                for item in self.soup().findAll('div', class_='card clearfix')
             ],
+            'links': {
+                'self': self.__class__.RESOURCE_PATH_PATTERN
+            },
         }
 
 
-class Program(Scraper):
+class ProgramScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}'
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}'
 
@@ -271,11 +268,16 @@ class Program(Scraper):
 
         collections = [
             {
-                'resource_path': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
                 'type': 'collection',
-                'title': ' - '.join((title, anchor.text)),
-                'thumbnail': thumbnail,
-                'textbody':  textbody,
+                'id': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
+                'attributes': {
+                    'title': ' - '.join((title, anchor.text)),
+                    'thumbnail': thumbnail,
+                    'textbody':  textbody,
+                },
+                'links': {
+                    'self': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
+                }
             }
             for anchor in soup.find_all('a', class_='program-nav__anchor')
         ]
@@ -283,11 +285,16 @@ class Program(Scraper):
         if highlights:
             collections.append(
                 {
-                    'resource_path': Scraper.resource_path_for(highlights.attrs['href']),
                     'type': 'collection',
-                    'title': ' - '.join((title, 'Segments')),
-                    'thumbnail': thumbnail,
-                    'textbody':  textbody,
+                    'id': Scraper.resource_path_for(highlights.attrs['href']),
+                    'attributes': {
+                        'title': ' - '.join((title, 'Segments')),
+                        'thumbnail': thumbnail,
+                        'textbody':  textbody,
+                    },
+                    'links': {
+                        'self': Scraper.resource_path_for(highlights.attrs['href']),
+                    }
                 }
             )
         return {
@@ -307,37 +314,37 @@ class AudioItemGenerator:
             'links': self.pagination()
         }
 
-class ProgramBroadcasts(Scraper, AudioItemGenerator):
+class ProgramBroadcastsScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/broadcasts'
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/page'
 
 
-class ProgramPodcasts(Scraper, AudioItemGenerator):
+class ProgramPodcastsScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/podcasts'
     WEBSITE_PATH_PATTERN = '/explore/podcasts/{program_id}/episodes'
 
 
-class ProgramSegments(Scraper, AudioItemGenerator):
+class ProgramSegmentsScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/segments'
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/highlights'
 
 
-class OnDemandSegments(Scraper, AudioItemGenerator):
+class OnDemandSegmentsScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/segments'
     WEBSITE_PATH_PATTERN = '/on-demand/segments'
 
 
-class OnDemandBroadcasts(Scraper, AudioItemGenerator):
+class OnDemandBroadcastsScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/broadcasts'
     WEBSITE_PATH_PATTERN = '/on-demand/episodes'
 
 
-class Archives(Scraper, AudioItemGenerator):
+class ArchivesScraper(Scraper, AudioItemGenerator):
     RESOURCE_PATH_PATTERN = '/archives'
     WEBSITE_PATH_PATTERN = '/on-demand/archives'
 
 
-class ArchiveItem(Scraper):
+class ArchiveScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/archives/{item}'
     WEBSITE_PATH_PATTERN = '/on-demand/archives/{item}'
 
@@ -366,27 +373,33 @@ class ExternalMedia:
     RE_YOUTUBE_PLAYLIST_ID           = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)\/.+\?.*list=(?P<media_id>[\w\-]+)')
     YOUTUBE_PLAYLIST_PLUGIN_FORMAT   = '{}?playlist_id={}&order=default&play=1'
 
+    RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
+
     RE_MEDIA_URLS = {
-        'Bandcamp':         {
+        'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
             'base':   BANDCAMP_PLUGIN_BASE_URL,
             'format': BANDCAMP_PLUGIN_FORMAT,
         },
-        'SoundCloud':       {
+        'soundcloud': {
             're':     RE_SOUNDCLOUD_PLAYLIST_ID,
             'base':   SOUNDCLOUD_PLUGIN_BASE_URL,
             'format': SOUNDCLOUD_PLUGIN_FORMAT,
         },
-        'YouTube': {
+        'youtube': {
             're':     RE_YOUTUBE_VIDEO_ID,
             'base':   YOUTUBE_PLUGIN_BASE_URL,
             'format': YOUTUBE_VIDEO_PLUGIN_FORMAT,
         },
-        'YouTube Playlist': {
+        'youtube_playlist': {
             're':     RE_YOUTUBE_PLAYLIST_ID,
             'base':   YOUTUBE_PLUGIN_BASE_URL,
             'format': YOUTUBE_PLAYLIST_PLUGIN_FORMAT,
-        }
+        },
+        'indigitube': {
+            're':     RE_INDIGITUBE_ALBUM_ID,
+            'format': '',
+        },
     }
 
     def media_items(self, iframes, fetch_album_art=False):
@@ -404,13 +417,14 @@ class ExternalMedia:
                     if media_id:
                         url = info.get('format').format(info.get('base'), media_id)
                         if fetch_album_art:
-                            if plugin == 'Bandcamp':
+                            if plugin == 'bandcamp':
                                 thumbnail = self.bandcamp_album_art(media_id)
                         break
 
             matches.append(
                 {
                     'url':       url if media_id else '',
+                    'media_id':  media_id,
                     'src':       iframe.get('src'),
                     'attrs':     iframe.get('attrs'),
                     'plugin':    plugin if plugin_match else None,
@@ -429,9 +443,13 @@ class ExternalMedia:
         return None
 
 
-class FeaturedAlbum(Scraper, ExternalMedia):
+class FeaturedAlbumScraper(Scraper, ExternalMedia):
     RESOURCE_PATH_PATTERN = '/featured_albums/{album_id}'
     WEBSITE_PATH_PATTERN = '/explore/album-of-the-week/{album_id}'
+
+    @property
+    def path(self):
+        return self.resource_path
 
     def generate(self):
         pagesoup = self.soup()
@@ -452,24 +470,30 @@ class FeaturedAlbum(Scraper, ExternalMedia):
         album_title  = album_info.find(class_='album-banner__heading', recursive=False).text
         album_artist = album_info.find(class_='album-banner__artist',  recursive=False).text
 
+        if len(album_urls) > 0:
+            album_type = album_urls[0].get('plugin')
+            album_id   = album_urls[0].get('media_id')
+        else:
+            album_type = 'featured_album'
+            album_id   = self.resource_path.split('/')[-1]
+
         data = [
             {
-                'resource_path': self.resource_path,
-                'type':        'featured_album',
-                'title':     ' - '.join((album_artist, album_title)),
-                'artist':    album_artist,
-                'textbody':  album_copy,
+                'type': album_type,
+                'id': album_id,
+                'attributes': {
+                    'title':     ' - '.join((album_artist, album_title)),
+                    'artist':    album_artist,
+                    'textbody':  album_copy,
+                },
+                'links': {
+                    'self': self.path,
+                }
             }
         ]
 
-        if album_urls and album_urls[0].get('url'):
-            url = album_urls[0].get('url')
-            if url:
-                data[0]['id']     = self.resource_path.split('/')[-1]
-                data[0]['url']    = url
-                data[0]['plugin'] = album_urls[0].get('plugin')
         if album_image:
-            data[0]['thumbnail']  = album_image.attrs.get('src')
+            data[0]['attributes']['thumbnail']  = album_image.attrs.get('src')
 
         return {
             'data': data,
@@ -477,28 +501,21 @@ class FeaturedAlbum(Scraper, ExternalMedia):
 
 
 
-class FeaturedAlbums(Scraper):
+class FeaturedAlbumsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/featured_albums'
     WEBSITE_PATH_PATTERN = '/explore/album-of-the-week'
 
     def generate(self):
         return {
             'data': [
-                {
-                    'resource_path': Scraper.resource_path_for(card.find('a'  , class_='card__anchor').attrs['href']),
-                    'type':          'featured_album',
-                    'title':         card.find('h1' , class_='card__title' ).find('a').text,
-                    'subtitle':      card.find(       class_='card__meta'  ).text,
-                    'thumbnail':     card.find('img'                       ).attrs.get('data-src'),
-                    'textbody':      card.find('p'                         ).text
-                }
-                for card in self.soup().findAll('div', class_='card clearfix')
+                FeaturedAlbum(item).to_dict()
+                for item in self.soup().findAll('div', class_='card clearfix')
             ],
             'links': self.pagination()
         }
 
 
-class NewsItems(Scraper):
+class NewsItemsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/news_items'
     WEBSITE_PATH_PATTERN = '/explore/news-articles'
 
@@ -512,12 +529,12 @@ class NewsItems(Scraper):
         }
 
 
-class NewsItem(Scraper):
+class NewsItemScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/news_items/{item}'
     WEBSITE_PATH_PATTERN = '/explore/news-articles/{item}'
 
 
-class ProgramBroadcastItem(Scraper):
+class ProgramBroadcastScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/broadcasts/{item}'
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/{item}'
 
@@ -525,7 +542,7 @@ class ProgramBroadcastItem(Scraper):
         return {'data': []}
 
 
-class ProgramPodcastItem(Scraper):
+class ProgramPodcastScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/podcasts/{item}'
     WEBSITE_PATH_PATTERN = '/explore/podcasts/{program_id}/episodes/{item}'
 
@@ -533,7 +550,7 @@ class ProgramPodcastItem(Scraper):
         return {'data': []}
 
 
-class ProgramSegmentItem(Scraper):
+class ProgramSegmentScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/segments/{item}'
     WEBSITE_PATH_PATTERN = '/on-demand/segments/{item}'
 
@@ -541,7 +558,7 @@ class ProgramSegmentItem(Scraper):
         return {'data': []}
 
 
-class Schedule(Scraper):
+class ScheduleScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/schedule'
     WEBSITE_PATH_PATTERN = '/explore/schedule'
 
@@ -558,7 +575,7 @@ class Schedule(Scraper):
         }
 
 
-class Search(Scraper):
+class SearchScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/search'
     WEBSITE_PATH_PATTERN = '/search'
 
@@ -572,28 +589,21 @@ class Search(Scraper):
         }
 
 
-class Soundscapes(Scraper):
+class SoundscapesScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/soundscapes'
     WEBSITE_PATH_PATTERN = '/explore/soundscape'
 
     def generate(self):
         return {
             'data': [
-                {
-                    'resource_path': Scraper.resource_path_for(item.find('a').attrs.get('href')),
-                    'type':          'soundscape',
-                    'title':         item.find('span').text,
-                    'subtitle':      item.find('span').text.split(' - ')[-1],
-                    'textbody':      item.find('p').text,
-                    'thumbnail':     item.find('img').attrs.get('data-src'),
-                }
+                Soundscape(item).to_dict()
                 for item in self.soup().findAll(class_='list-view__item')
             ],
             'links': self.pagination()
         }
 
 
-class Soundscape(Scraper, ExternalMedia):
+class SoundscapeScraper(Scraper, ExternalMedia):
     RESOURCE_PATH_PATTERN = '/soundscapes/{item}'
     WEBSITE_PATH_PATTERN = '/explore/soundscape/{item}'
 
@@ -631,30 +641,55 @@ class Soundscape(Scraper, ExternalMedia):
 
         data = []
         for media in media_items:
-            dataitem = {
+            dataitem = {}
+            attributes = {
                 'subtitle':   soundscape_date,
                 'artist':     media.get('attrs').get('artist'),
                 'thumbnail':  media.get('thumbnail'),
             }
 
             if media.get('plugin'):
-                dataitem['title']  = media.get('attrs').get('title')
-                dataitem['id']     = re.sub(' ', '-', media.get('attrs').get('id')).lower()
-                dataitem['url']    = media.get('url')
-                dataitem['plugin'] = media.get('plugin')
+                # dataitem['id']   = re.sub(' ', '-', media.get('attrs').get('id')).lower()
+                dataitem['id'] = media.get('media_id')
+                dataitem['type'] = media.get('plugin')
+                attributes['title'] = media.get('attrs').get('title')
+                # attributes['url']   = media.get('url')
             else:
-                dataitem['title'] = media.get('attrs').get('title')
                 dataitem['id']    = ''
+                attributes['title'] = media.get('attrs').get('title')
 
-            dataitem['textbody'] = '{}\n{}\n'.format(
+            attributes['textbody'] = '{}\n{}\n'.format(
                 media.get('attrs').get('title'),
                 media.get('attrs').get('featured_album')
-            )
+            ).strip()
+
+            dataitem['attributes'] = attributes
 
             data.append(dataitem)
 
         return {
             'data': data,
+        }
+
+
+class Program(Resource):
+    @property
+    def title(self):
+        return self._itemobj.find('h1', class_='card__title' ).find('a').text
+
+    @property
+    def thumbnail(self):
+        return self._itemobj.find('img').attrs.get('data-src')
+
+    @property
+    def textbody(self):
+        return self._itemobj.find('p').text
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'thumbnail': self.thumbnail,
+            'textbody':  self.textbody,
         }
 
 
@@ -669,7 +704,7 @@ class Topic(Resource):
         }
 
 
-class Topics(Scraper):
+class TopicsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/topics'
     WEBSITE_PATH_PATTERN = '/'
 
@@ -685,7 +720,7 @@ class Topics(Scraper):
         }
 
 
-class TopicsItem(Scraper):
+class TopicScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/topics/{topic}'
     WEBSITE_PATH_PATTERN = '/topics/{topic}'
 
@@ -699,7 +734,7 @@ class TopicsItem(Scraper):
         }
 
 
-class TracksSearch(Scraper):
+class TracksSearchScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/tracks/search'
     WEBSITE_PATH_PATTERN = '/tracks/search'
 
@@ -712,7 +747,7 @@ class TracksSearch(Scraper):
         }
 
 
-class TracksItem(Scraper):
+class TrackScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/tracks/{track_id}'
     WEBSITE_PATH_PATTERN = '/tracks/{track_id}'
 
@@ -740,7 +775,7 @@ class Track(Resource):
         }
 
 
-class Events(Scraper):
+class EventsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/events'
     WEBSITE_PATH_PATTERN = '/events'
 
@@ -754,9 +789,13 @@ class Events(Scraper):
         }
 
 
-class EventItem(Scraper):
+class EventScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/events/{item}'
     WEBSITE_PATH_PATTERN = '/events/{item}'
+
+    @property
+    def path(self):
+        return self.resource_path
 
     def generate(self):
         item = self.soup().find(class_='event')
@@ -768,43 +807,47 @@ class EventItem(Scraper):
         if flag_label:
             event_type = re.sub(' ', '-', flag_label.text).lower()
         else:
-            event_type = None
+            # event_type = None
+            event_type = 'event'
 
         return {
             'data': [
                 {
-                    'resource_path':  self.resource_path,
-                    'type':           event_type,
-                    'title':          item.find(class_='event__title').text,
-                    'venue':          venue.get_text(' ') if venue else '',
-                    'textbody':       '\n'.join((eventdetails, textbody)),
+                    'type':       event_type,
+                    'id':         Resource.id(self),
+                    'attributes': {
+                        'title':    item.find(class_='event__title').text,
+                        'venue':    venue.get_text(' ') if venue else '',
+                        'textbody': '\n'.join((eventdetails, textbody)),
+                    },
+                    'links': {
+                        'self': self.resource_path,
+                    }
                 }
             ],
         }
 
 
-class Giveaways(Scraper):
+class GiveawaysScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/giveaways'
     WEBSITE_PATH_PATTERN = '/subscriber-giveaways'
 
     def generate(self):
         return {
             'data': [
-                {
-                    'resource_path': Scraper.resource_path_for(item.find('a').attrs.get('href')),
-                    'type':          'giveaway',
-                    'title':         item.find('span').text,
-                    'textbody':      item.find('p').text,
-                    'thumbnail':     item.find('img').attrs.get('data-src'),
-                }
+                Giveaway(item).to_dict()
                 for item in self.soup().findAll(class_='list-view__item')
             ],
         }
 
 
-class Giveaway(Scraper):
+class GiveawayScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/giveaways/{giveaway}'
     WEBSITE_PATH_PATTERN = '/subscriber-giveaways/{giveaway}'
+
+    @property
+    def path(self):
+        return self.resource_path
 
     def generate(self):
         item = self.soup().find(class_='subscriber_giveaway')
@@ -815,17 +858,22 @@ class Giveaway(Scraper):
         return {
             'data': [
                 {
-                    'resource_path':  '/'.join((self.resource_path, 'entries')),
-                    'type':           'giveaway',
-                    'title':          banner.find(class_='compact-banner__heading').text,
-                    'textbody':       f'{closes}\n\n{textbody}',
-                    'thumbnail':      item.find(class_='summary-inset__artwork').attrs.get('src'),
+                    'type': 'giveaway',
+                    'id':   Resource.id(self),
+                    'attributes': {
+                        'title':     banner.find(class_='compact-banner__heading').text,
+                        'textbody':  f'{closes}\n\n{textbody}',
+                        'thumbnail': item.find(class_='summary-inset__artwork').attrs.get('src'),
+                    },
+                    'links': {
+                        'self':  '/'.join((self.resource_path, 'entries')),
+                    }
                 }
             ],
         }
 
 
-class Video(Scraper):
+class VideoScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/videos/{item}'
     WEBSITE_PATH_PATTERN = '/explore/videos/{item}'
 
@@ -833,7 +881,7 @@ class Video(Scraper):
         return {'data': []}
 
 
-class Videos(Scraper):
+class VideosScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/videos'
     WEBSITE_PATH_PATTERN = '/explore/videos'
 
@@ -844,14 +892,54 @@ class Videos(Scraper):
 
 ### Scrapers ##############################################
 
-class News:
-    def __init__(self, itemobj):
-        self._itemobj = itemobj
+class FeaturedAlbum(Resource):
+    @property
+    def title(self):
+        return self._itemobj.find('h1', class_='card__title' ).find('a').text
 
     @property
-    def resource_path(self):
-        return Scraper.resource_path_for(self._itemobj.find(class_='list-view__anchor').attrs['href'])
+    def subtitle(self):
+        return self._itemobj.find(class_='card__meta').text
 
+    @property
+    def thumbnail(self):
+        return self._itemobj.find('img').attrs.get('data-src')
+
+    @property
+    def textbody(self):
+        return self._itemobj.find('p').text
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'subtitle':  self.subtitle,
+            'thumbnail': self.thumbnail,
+            'textbody':  self.textbody,
+        }
+
+
+class Giveaway(Resource):
+    @property
+    def title(self):
+        return self._itemobj.find('span').text
+
+    @property
+    def textbody(self):
+        return self._itemobj.find('p').text
+
+    @property
+    def thumbnail(self):
+        return self._itemobj.find('img').attrs.get('data-src')
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'textbody':  self.textbody,
+            'thumbnail': self.thumbnail,
+        }
+
+
+class News(Resource):
     @property
     def title(self):
         return self._itemobj.find(class_='list-view__title').text
@@ -864,23 +952,40 @@ class News:
     def textbody(self):
         return self._itemobj.find(class_='list-view__summary').text
 
-    def to_dict(self):
+    def attributes(self):
         return {
-            'resource_path': self.resource_path,
-            'title':         self.title,
-            'type':          self.type,
-            'textbody':      self.textbody,
+            'title':    self.title,
+            'textbody': self.textbody,
         }
 
 
-class Event:
-    def __init__(self, itemobj):
-        self._itemobj = itemobj
+class Soundscape(Resource):
+    @property
+    def title(self):
+        return self._itemobj.find('span').text
 
     @property
-    def resource_path(self):
-        return Scraper.resource_path_for(self._itemobj.find('a', class_='card__anchor').attrs['href'])
+    def subtitle(self):
+        return self._itemobj.find('span').text.split(' - ')[-1]
 
+    @property
+    def thumbnail(self):
+        return self._itemobj.find('img').attrs.get('data-src')
+
+    @property
+    def textbody(self):
+        return self._itemobj.find('p').text
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'subtitle':  self.subtitle,
+            'textbody':  self.textbody,
+            'thumbnail': self.thumbnail,
+        }
+
+
+class Event(Resource):
     @property
     def _itemtitle(self):
         return self._itemobj.find(class_='card__title').find('a').text
@@ -902,7 +1007,7 @@ class Event:
         return self._itemobj.find(class_='card__meta').find('div').text
 
     @property
-    def event_type(self):
+    def type(self):
         return re.sub(' ', '-', self._itemtype).lower()
 
     @property
@@ -956,11 +1061,9 @@ class Event:
         venue = self.venue
         return '\n'.join((self._itemtitle, 'Date: ' + self._itemdate, 'Venue:' if venue else '', self.venue, '', self._itemtype))
 
-    def to_dict(self):
+    def attributes(self):
         return {
-            'resource_path': self.resource_path,
             'title':         self.title,
-            'type':          self.event_type,
             'thumbnail':     self.thumbnail,
             'date':          self.date,
             'venue':         self.venue,
@@ -974,7 +1077,7 @@ class ScheduleItem:
         self._audio_item = AudioItem.factory(itemobj)
 
     @property
-    def resource_path(self):
+    def path(self):
         return Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])
 
     @property
@@ -992,8 +1095,7 @@ class ScheduleItem:
     @property
     def content(self):
         content = json.loads(self._itemobj.find(class_='hide-from-all').attrs['data-content'])
-        content['title'] = content['name'] if 'name' in content.keys() else ''
-        content['type'] = 'program' if content['type'] == 'programs' else None  # Eeek
+        content['type'] = 'program' if content['type'] == 'programs' else 'scheduled'
         return content
 
     @property
@@ -1002,14 +1104,30 @@ class ScheduleItem:
 
 
     def to_dict(self):
-        return {
-                           **self.content,
-                           **self.audio_item,
-            'resource_path': self.resource_path,
-            'start':         self.start,
-            'end':           self.end,
-            'textbody':      self.textbody,
+        attrs = {
+            **self.content,
+            'start': self.start,
+            'end': self.end,
+            'textbody': self.textbody,
         }
+        ai = self.audio_item
+        itemid = ai.pop('id', attrs.pop('id'))
+        itemtype = ai.pop('type', attrs.pop('type'))
+        itemtitle = ai.pop('title', attrs.pop('name'))
+        attrs = {
+            **ai.pop('attributes', {}),
+            **attrs,
+            'title': itemtitle,
+        }
+
+        return {
+            'type': itemtype,
+            'id': itemid,
+            'attributes': attrs,
+            'links': {
+                'self': self.path
+            }
+         }
 
 
 class ItemType:
@@ -1139,6 +1257,8 @@ class AudioItem:
 
             if 'data-view-account-toggle' in view_playable_div.parent.parent.attrs:
                 itemobj['activeSubscribersOnly'] = True
+            else:
+                itemobj['activeSubscribersOnly'] = False
 
             if   itemobj['type'] == 'clip':
                 obj = Segment(item, itemobj, textbody)
@@ -1160,7 +1280,6 @@ class AudioItem:
         self._item = item
         self._itemobj = itemobj
         self._itemdata = itemobj['data']
-        self.activeSubscribersOnly = itemobj.get('activeSubscribersOnly')
         self.textbody = textbody
 
     @property
@@ -1172,6 +1291,10 @@ class AudioItem:
     @property
     def type(self):
         return self.__class__.__name__.lower()
+
+    @property
+    def activeSubscribersOnly(self):
+        return self._itemobj.get('activeSubscribersOnly')
 
     @property
     def source_id(self):
@@ -1228,19 +1351,23 @@ class AudioItem:
 
     def to_dict(self):
         return {
-            'source_id':     self.source_id,
-            'resource_path': self.resource_path,
             'type':          self.type,
-            'title':         self.title,
-            'subtitle':      self.subtitle,
-            'textbody':      self.textbody,
-            'date':          self.date,
-            'year':          self.year,
-            'aired':         self.aired,
-            'duration':      self.duration,
-            'auth':          self.activeSubscribersOnly,
-            'url':           self.url,
-            'thumbnail':     self.thumbnail,
+            'id':            self.source_id,
+            'attributes': {
+                'title':         self.title,
+                'subtitle':      self.subtitle,
+                'textbody':      self.textbody,
+                'date':          self.date,
+                'year':          self.year,
+                'aired':         self.aired,
+                'duration':      self.duration,
+                'auth':          self.activeSubscribersOnly,
+                'url':           self.url,
+                'thumbnail':     self.thumbnail,
+            },
+            'links': {
+                'self': self.resource_path,
+            }
         }
 
 

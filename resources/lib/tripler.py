@@ -8,6 +8,7 @@ import xbmc
 
 from resources.lib.scraper import Scraper
 from resources.lib.website import TripleRWebsite
+from resources.lib.media   import Media
 
 from urllib.parse import parse_qs, urlencode, quote, unquote
 
@@ -20,6 +21,7 @@ class TripleR():
         self.icon = os.path.join(self._respath, 'icon.png')
         self.fanart = os.path.join(self._respath, 'fanart.png')
         self.website = TripleRWebsite(os.path.join(self._respath, 'cookies.lwp'))
+        self.supported_plugins = Media.RE_MEDIA_URLS.keys()
 
         self.nextpage = self.plugin.get_string(30004)
         self.lastpage = self.plugin.get_string(30005)
@@ -101,8 +103,8 @@ class TripleR():
         if picked_date_str:
             date_str    = '-'.join([i.zfill(2) for i in picked_date_str.replace(' ', '').split('/')[::-1]])
             current     = datetime(*(time.strptime(date_str, '%Y-%m-%d')[0:6]))
-            daydelta    = current - datetime.utcnow() + timedelta(hours=10 + 6)
-            if daydelta.days != -1:
+            daydelta    = current - datetime.utcnow() + timedelta(hours=6)
+            if daydelta.days != 0:
                 return date_str
 
         return None
@@ -111,56 +113,62 @@ class TripleR():
         items = []
 
         for menuitem in data:
-            if menuitem is None:
+            m_id, m_type = menuitem.get('id', ''), menuitem.get('type', '')
+            m_self       = menuitem.get('links', {}).get('self', '/')
+            attributes   = menuitem.get('attributes', {})
+            if attributes is None:
                 continue
-            if menuitem.get('auth'):
+            if attributes.get('auth'):
                 if not self.login() or not self.website.subscribed():
                     continue
 
-            textbody = menuitem.get('textbody', '')
-            if menuitem.get('subtitle'):
-                textbody  = '\n'.join((self.plugin.get_string(30007) % (menuitem['subtitle']), textbody))
-            if menuitem.get('venue'):
-                textbody  = '\n'.join((menuitem['venue'], textbody))
+            textbody = attributes.get('textbody', '')
+            if attributes.get('subtitle'):
+                textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes['subtitle']), textbody))
+            if attributes.get('venue'):
+                textbody    = '\n'.join((attributes['venue'], textbody))
 
-            if menuitem.get('plugin'):
-                title     = '{} ({})'.format(menuitem.get('title'), menuitem.get('plugin'))
-                textbody  = '{}\nPlay with {}'.format(textbody, menuitem.get('plugin'))
+            if m_type in self.supported_plugins:
+                name        = Media.RE_MEDIA_URLS[m_type].get('name')
+                title       = '{} ({})'.format(attributes.get('title', ''), name)
+                textbody    = '{}\nPlay with {}'.format(textbody, name)
+                pathurl     = Media.parse_media_id(m_type, m_id)
+                is_playable = False
             else:
-                title = menuitem.get('title')
+                title       = attributes.get('title', '')
+                pathurl     = attributes.get('url')
+                is_playable = True
 
-            if menuitem.get('type') == 'giveaway' and 'entries' in menuitem.get('resource_path', '').split('/'):
-                title += ' ({})'.format(self.plugin.get_string(30069))
-                textbody  = '\n'.join((self.plugin.get_string(30070), textbody))
+            if m_type == 'giveaway' and 'entries' in m_self.split('/'):
+                title      += ' ({})'.format(self.plugin.get_string(30069))
+                textbody    = '\n'.join((self.plugin.get_string(30070), textbody))
 
-            if menuitem.get('start') and menuitem.get('end'):
-                datestart = datetime.fromisoformat(menuitem['start'])
-                dateend   = datetime.fromisoformat(menuitem['end'])
-                start     = datetime.strftime(datestart, '%H:%M')
-                end       = datetime.strftime(dateend,   '%H:%M')
-                textbody  = '\n'.join((f'{start} - {end}', textbody))
-                title     = ' - '.join((start, end, title))
+            if attributes.get('start') and attributes.get('end'):
+                datestart   = datetime.fromisoformat(attributes['start'])
+                dateend     = datetime.fromisoformat(attributes['end'])
+                start       = datetime.strftime(datestart, '%H:%M')
+                end         = datetime.strftime(dateend,   '%H:%M')
+                textbody    = '\n'.join((f'{start} - {end}', textbody))
+                title       = ' - '.join((start, end, title))
 
 
-            if menuitem.get('aired'):
-                aired     = self.plugin.get_string(30006) % (menuitem['aired'])
+            if attributes.get('aired'):
+                aired       = self.plugin.get_string(30006) % (attributes['aired'])
             else:
-                aired     = menuitem.get('date', '')
+                aired       = attributes.get('date', '')
 
-            thumbnail = menuitem.get('thumbnail', '')
-            pathurl   = menuitem.get('url')
+            thumbnail       = attributes.get('thumbnail', '')
 
             if pathurl:
-                is_playable = not pathurl.startswith('plugin://')
-                mediatype = 'song'
-                info_type = 'video'
+                mediatype   = 'song'
+                info_type   = 'video'
             else:
-                pathurl = '{}{}'.format(self.url, menuitem.get('resource_path', '/'))
+                pathurl     = '{}{}'.format(self.url, m_self)
                 is_playable = False
-                mediatype = ''
-                info_type = 'video'
+                mediatype   = ''
+                info_type   = 'video'
 
-            date, year = menuitem.get('date', ''), menuitem.get('year', '')
+            date, year = attributes.get('date', ''), attributes.get('year', '')
             if date:
                 date = time.strftime('%d.%m.%Y', time.strptime(date, '%Y-%m-%d'))
                 year = date[0]
@@ -172,14 +180,14 @@ class TripleR():
                 'label2': aired,
                 'info_type': info_type,
                 'info': {
-                    'count': menuitem.get('resource_path', ''),
+                    'count': m_id,
                     'title': title,
                     'plot': textbody,
                     'date': date,
                     'year': year,
                     'premiered': aired,
                     'aired': aired,
-                    'duration': menuitem.get('duration', ''),
+                    'duration': attributes.get('duration', ''),
                 },
                 'properties': {
                     'StationName': self.plugin.get_string(30000),
@@ -192,7 +200,7 @@ class TripleR():
             if mediatype:
                 item['info']['mediatype'] = mediatype
 
-            xbmc.log("menuitem: " + str(pathurl), xbmc.LOGDEBUG)
+            xbmc.log("attributes: " + str(pathurl), xbmc.LOGDEBUG)
 
             listitem = ListItem.from_dict(**item)
             items.append(listitem)
@@ -205,7 +213,7 @@ class TripleR():
                     'path': f'{self.url}/schedule?picker={self_date}'
                 }
             )
-        elif 'giveaways' in segments and len(segments) < 2 and not self.login():
+        elif ('giveaways' in segments or 'archives' in segments) and len(segments) < 2 and (not self.login() or not self.website.subscribed()):
             items.insert(0,
                 {
                     'label': self.plugin.get_string(30081),
