@@ -1137,6 +1137,9 @@ class AudioItem:
             view_playable = view_playable_div.attrs['data-view-playable']
             itemobj = json.loads(view_playable)['items'][0]
 
+            if 'data-view-account-toggle' in view_playable_div.parent.parent.attrs:
+                itemobj['activeSubscribersOnly'] = True
+
             if   itemobj['type'] == 'clip':
                 obj = Segment(item, itemobj, textbody)
             elif itemobj['type'] == 'broadcast_episode':
@@ -1157,6 +1160,7 @@ class AudioItem:
         self._item = item
         self._itemobj = itemobj
         self._itemdata = itemobj['data']
+        self.activeSubscribersOnly = itemobj.get('activeSubscribersOnly')
         self.textbody = textbody
 
     @property
@@ -1234,8 +1238,9 @@ class AudioItem:
             'year':          self.year,
             'aired':         self.aired,
             'duration':      self.duration,
+            'auth':          self.activeSubscribersOnly,
             'url':           self.url,
-            'thumbnail':     self.thumbnail
+            'thumbnail':     self.thumbnail,
         }
 
 

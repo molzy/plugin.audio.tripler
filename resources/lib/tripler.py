@@ -113,6 +113,9 @@ class TripleR():
         for menuitem in data:
             if menuitem is None:
                 continue
+            if menuitem.get('auth'):
+                if not self.login() or not self.website.subscribed():
+                    continue
 
             textbody = menuitem.get('textbody', '')
             if menuitem.get('subtitle'):
