@@ -95,6 +95,14 @@ class TripleR():
         }
         return item
 
+    def _sub_item(self, text):
+        item = {
+            'label': text,
+            'path': f'{self.url}/settings',
+            'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
+        }
+        return item
+
     def select_date(self, self_date):
         self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
         dialog_title    = self.plugin.get_string(30065) % (self.plugin.get_string(30033))
@@ -213,14 +221,10 @@ class TripleR():
                     'path': f'{self.url}/schedule?picker={self_date}'
                 }
             )
-        elif ('giveaways' in segments or 'archives' in segments) and len(segments) < 2 and (not self.login() or not self.website.subscribed()):
-            items.insert(0,
-                {
-                    'label': self.plugin.get_string(30081),
-                    'path': f'{self.url}/settings',
-                    'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
-                }
-            )
+        elif 'giveaways' in segments and len(segments) < 2 and (not self.login() or not self.website.subscribed()):
+            items.insert(0, self._sub_item(self.plugin.get_string(30081)))
+        elif 'archives' in segments and (not self.login() or not self.website.subscribed()):
+            items.insert(0, self._sub_item(self.plugin.get_string(30082)))
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):

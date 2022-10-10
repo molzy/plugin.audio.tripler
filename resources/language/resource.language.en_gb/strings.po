@@ -190,3 +190,7 @@ msgstr ""
 msgctxt "#30081"
 msgid "https://www.rrr.org.au/subscribe - Subscribe and login to enter the below giveaways!"
 msgstr ""
+
+msgctxt "#30082"
+msgid "https://www.rrr.org.au/subscribe - Subscribe and login to listen to all audio archives!"
+msgstr ""
