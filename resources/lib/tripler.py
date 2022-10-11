@@ -50,7 +50,7 @@ class TripleR():
 
         if len(segments[0]) < 1:
             return self.main_menu()
-        elif 'auth' in segments:
+        elif 'subscription_required' in segments:
             self._notify(self.plugin.get_string(30083), self.plugin.get_string(30082))
         elif 'settings' in segments:
             Addon().openSettings()
@@ -146,10 +146,10 @@ class TripleR():
                 pathurl     = attributes.get('url')
                 is_playable = True
 
-            if attributes.get('auth'):
+            if attributes.get('subscription_required'):
                 if not self.login() or not self.website.subscribed():
                     title   = f'{self.plugin.get_string(30083)} - {title}'
-                    pathurl = '{}{}'.format(self.url, '/auth')
+                    pathurl = '{}{}'.format(self.url, '/subscription_required')
                     is_playable = False
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):

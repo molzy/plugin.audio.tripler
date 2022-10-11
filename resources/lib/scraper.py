@@ -1113,7 +1113,7 @@ class ScheduleItem:
         ai = self.audio_item
         itemid = ai.pop('id', attrs.pop('id'))
         itemtype = ai.pop('type', attrs.pop('type'))
-        itemtitle = ai.pop('title', attrs.pop('name'))
+        itemtitle = ai.get('attributes', {}).pop('title', attrs.pop('name'))
         attrs = {
             **ai.pop('attributes', {}),
             **attrs,
@@ -1256,9 +1256,9 @@ class AudioItem:
             itemobj = json.loads(view_playable)['items'][0]
 
             if 'data-view-account-toggle' in view_playable_div.parent.parent.attrs:
-                itemobj['activeSubscribersOnly'] = True
+                itemobj['subscription_required'] = True
             else:
-                itemobj['activeSubscribersOnly'] = False
+                itemobj['subscription_required'] = False
 
             if   itemobj['type'] == 'clip':
                 obj = Segment(item, itemobj, textbody)
@@ -1293,8 +1293,8 @@ class AudioItem:
         return self.__class__.__name__.lower()
 
     @property
-    def activeSubscribersOnly(self):
-        return self._itemobj.get('activeSubscribersOnly')
+    def subscription_required(self):
+        return self._itemobj.get('subscription_required')
 
     @property
     def source_id(self):
@@ -1350,7 +1350,7 @@ class AudioItem:
             return 'https://ondemand.rrr.org.au/getclip?bw=h&l={}&m=r&p=1&s={}'.format(l, ts)
 
     def to_dict(self):
-        return {
+        item = {
             'type':          self.type,
             'id':            self.source_id,
             'attributes': {
@@ -1361,7 +1361,6 @@ class AudioItem:
                 'year':          self.year,
                 'aired':         self.aired,
                 'duration':      self.duration,
-                'auth':          self.activeSubscribersOnly,
                 'url':           self.url,
                 'thumbnail':     self.thumbnail,
             },
@@ -1369,6 +1368,9 @@ class AudioItem:
                 'self': self.resource_path,
             }
         }
+        if self.subscription_required:
+            item['attributes']['subscription_required'] = True
+        return item
 
 
 class Archive(AudioItem):
