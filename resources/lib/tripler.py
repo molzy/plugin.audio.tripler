@@ -50,6 +50,8 @@ class TripleR():
 
         if len(segments[0]) < 1:
             return self.main_menu()
+        elif 'auth' in segments:
+            self._notify(self.plugin.get_string(30083), self.plugin.get_string(30082))
         elif 'settings' in segments:
             Addon().openSettings()
         elif 'entries' in segments:
@@ -126,9 +128,6 @@ class TripleR():
             attributes   = menuitem.get('attributes', {})
             if attributes is None:
                 continue
-            if attributes.get('auth'):
-                if not self.login() or not self.website.subscribed():
-                    continue
 
             textbody = attributes.get('textbody', '')
             if attributes.get('subtitle'):
@@ -146,6 +145,12 @@ class TripleR():
                 title       = attributes.get('title', '')
                 pathurl     = attributes.get('url')
                 is_playable = True
+
+            if attributes.get('auth'):
+                if not self.login() or not self.website.subscribed():
+                    title   = f'{self.plugin.get_string(30083)} - {title}'
+                    pathurl = '{}{}'.format(self.url, '/auth')
+                    is_playable = False
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
                 title      += ' ({})'.format(self.plugin.get_string(30069))
@@ -223,8 +228,6 @@ class TripleR():
             )
         elif 'giveaways' in segments and len(segments) < 2 and (not self.login() or not self.website.subscribed()):
             items.insert(0, self._sub_item(self.plugin.get_string(30081)))
-        elif 'archives' in segments and (not self.login() or not self.website.subscribed()):
-            items.insert(0, self._sub_item(self.plugin.get_string(30082)))
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
@@ -241,6 +244,9 @@ class TripleR():
                             'path': '{}/{}'.format(self.url, links['last'])
                         }
                     )
+        
+        if 'archives' in segments and (not self.login() or not self.website.subscribed()):
+            items.insert(0, self._sub_item(self.plugin.get_string(30082)))
 
         return items
 

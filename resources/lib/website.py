@@ -38,6 +38,13 @@ class TripleRWebsite():
 
         return None
 
+    def _mtimehash(self):
+        mtime = self._mtime(self._cookiepath + '.hash')
+        if mtime:
+            if (time.time() - mtime) < (60):
+                return True
+        return None
+
     def _hash(self, username, password):
         return hashlib.sha256(bytes(f'{username} - {password}', 'ascii')).hexdigest()[-32:]
 
@@ -86,6 +93,8 @@ class TripleRWebsite():
         if self._cmphash(username, password):
             if self._mtimecj():
                 return True
+            elif self._mtimehash():
+                return False
         else:
             self._delhash()
 
@@ -101,9 +110,9 @@ class TripleRWebsite():
 
             source = self.request(login_url, login_data)
 
+            self._writehash(username, password)
             if self._check_login(source, username):
                 self.cj.save(self._cookiepath)
-                self._writehash(username, password)
                 return self.cj
         else:
             return False

@@ -194,3 +194,7 @@ msgstr ""
 msgctxt "#30082"
 msgid "https://www.rrr.org.au/subscribe - Subscribe and login to listen to all audio archives!"
 msgstr ""
+
+msgctxt "#30083"
+msgid "Subscribe To Listen"
+msgstr ""
