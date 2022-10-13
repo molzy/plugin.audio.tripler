@@ -100,6 +100,9 @@ class TripleRWebsite():
         else:
             return False
 
+    def logged_in(self):
+        return self._loadcj()
+
     def subscribed(self):
         check_url = 'https://www.rrr.org.au/account/check-active.json'
         source = self.request(check_url)

@@ -22,6 +22,7 @@ class TripleR():
         self.icon = os.path.join(self._respath, 'icon.png')
         self.fanart = os.path.join(self._respath, 'fanart.png')
         self.website = TripleRWebsite(os.path.join(self._respath, 'cookies.lwp'))
+        self._signed_in = -1
         self.supported_plugins = Media.RE_MEDIA_URLS.keys()
 
         self.nextpage = self.plugin.get_string(30004)
@@ -282,8 +283,14 @@ class TripleR():
         return self.login(prompt=True, emailaddress=emailaddress, password=password)
 
     def login(self, prompt=False, emailaddress=None, password=None):
+        if self._signed_in != -1:
+            return self._signed_in
+        if self.addon.getSettingBool('authenticated') and self.website.logged_in():
+            return True
+
+        emailSetting = self.addon.getSetting('emailaddress')
         if emailaddress is None:
-            emailaddress = self.addon.getSetting('emailaddress')
+            emailaddress = emailSetting
 
         logged_in = self.website.login(emailaddress, password)
 
@@ -295,12 +302,14 @@ class TripleR():
                 self.subscribed()
                 self.addon.setSettingBool('authenticated', True)
 
-            self.addon.setSetting('emailaddress', emailaddress)
+            if emailSetting == '':
+                self.addon.setSetting('emailaddress', emailaddress)
             for cookie in logged_in:
                 if cookie.name == 'account':
                     fullname = json.loads(unquote_plus(cookie.value)).get('name')
                     if fullname:
                         self.addon.setSetting('fullname', fullname)
+            self._signed_in = logged_in
         else:
             if prompt:
                 self._notify(self.plugin.get_string(30085), self.plugin.get_string(30086) % (emailaddress))
@@ -316,6 +325,7 @@ class TripleR():
         if self.website.logout():
             self.addon.setSettingBool('authenticated', False)
             self.addon.setSetting('subscribed-check', '0')
+            self._signed_in = -1
             if emailaddress:
                 self._notify(self.plugin.get_string(30079) % (emailaddress), self.plugin.get_string(30078))
             self.addon.setSetting('emailaddress', '')
