@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.audio.tripler" name="Triple R" version="2.6.0" provider-name="Simon Mollema">
+<addon id="plugin.audio.tripler" name="Triple R" version="2.6.1" provider-name="Simon Mollema">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.xbmcswift2" version="19.0.7" />
@@ -20,9 +20,13 @@
 		<license>MIT</license>
 		<email>xbmc@molzy.com</email>
 		<source>https://github.com/molzy/plugin.audio.tripler</source>
-        <news>Version 2.6.0
+        <news>Version 2.6.1
+- Subscriber-only functionality improved
+- Tweaked recently introduced features
+
+Version 2.6.0
 - Rearranged menu
-- Subscriber-only giveaways can now be entered by logging in
+- Subscriber-only giveaways can now be entered by signing in
 - Browsing programs by date now possible
 
 Version 2.5.0
