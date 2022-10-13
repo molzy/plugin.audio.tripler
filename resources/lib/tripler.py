@@ -180,9 +180,14 @@ class TripleR():
 
             if m_sub:
                 if not self.login() or not self.subscribed():
-                    title   = f'{self.plugin.get_string(30084)} - {title}'
-                    pathurl = f'{self.url}{m_sub}'
+                    icon        =  'OverlayLocked.png'
+                    title       = f'Locked - {title}'
+                    textbody    = f'{self.plugin.get_string(30084)}\n{textbody}'
+                    pathurl     = f'{self.url}{m_sub}'
                     is_playable = False
+                else:
+                    title       = f'Unlocked - {title}'
+
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
                 title      += ' ({})'.format(self.plugin.get_string(30069))
