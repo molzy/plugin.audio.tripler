@@ -76,26 +76,34 @@ class TripleR():
     def main_menu(self):
         items = [
             self.livestream_item(),
-            {'label': self.plugin.get_string(30032), 'path': f'{self.url}/programs'},
-            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/schedule'},
-            {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts'},
-            {'label': self.plugin.get_string(30035), 'path': f'{self.url}/segments'},
-            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/archives'},
-            {'label': self.plugin.get_string(30037), 'path': f'{self.url}/featured_albums'},
-            {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes'},
-            {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events'},
-            {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways'},
+            {'label': self.plugin.get_string(30032), 'path': f'{self.url}/programs', 'icon': 'DefaultPartyMode.png'},
+            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/schedule', 'icon': 'DefaultYear.png'},
+            {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.plugin.get_string(30035), 'path': f'{self.url}/segments', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/archives', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.plugin.get_string(30037), 'path': f'{self.url}/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
+            {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
+            {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
+            {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
         ]
         if self.login():
             emailaddress = self.addon.getSetting('emailaddress')
             fullname = self.addon.getSetting('fullname')
             name = fullname if fullname else emailaddress
             items.append(
-                {'label': f'{self.plugin.get_string(30014)} ({name})', 'path': f'{self.url}/sign-out'}
+                {
+                    'label':     f'{self.plugin.get_string(30014)} ({name})',
+                    'path':      f'{self.url}/sign-out',
+                    'thumbnail':  'DefaultUser.png',
+                }
             )
         else:
             items.append(
-                {'label': self.plugin.get_string(30013), 'path': f'{self.url}/sign-in'}
+                {
+                    'label':      self.plugin.get_string(30013),
+                    'path':      f'{self.url}/sign-in',
+                    'thumbnail':  'DefaultUser.png',
+                }
             )
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
@@ -150,7 +158,10 @@ class TripleR():
             if attributes is None:
                 continue
 
-            textbody = attributes.get('textbody', '')
+            textbody        = attributes.get('textbody', '')
+            thumbnail       = attributes.get('thumbnail', '')
+            icon            = thumbnail
+
             if attributes.get('subtitle'):
                 textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes['subtitle']), textbody))
             if attributes.get('venue'):
@@ -159,7 +170,7 @@ class TripleR():
             if m_type in self.supported_plugins:
                 name        = Media.RE_MEDIA_URLS[m_type].get('name')
                 title       = '{} ({})'.format(attributes.get('title', ''), name)
-                textbody    = '{}\nPlay with {}'.format(textbody, name)
+                textbody    = f'{textbody}\nPlay with {name}'
                 pathurl     = Media.parse_media_id(m_type, m_id)
                 is_playable = False
             else:
@@ -191,8 +202,6 @@ class TripleR():
             else:
                 aired       = attributes.get('date', '')
 
-            thumbnail       = attributes.get('thumbnail', '')
-
             if pathurl:
                 mediatype   = 'song'
                 info_type   = 'video'
@@ -210,25 +219,26 @@ class TripleR():
                 date = time.strftime('%d.%m.%Y', time.localtime())
 
             item = {
-                'label': title,
-                'label2': aired,
+                'label':     title,
+                'label2':    aired,
                 'info_type': info_type,
                 'info': {
-                    'count': m_id,
-                    'title': title,
-                    'plot': textbody,
-                    'date': date,
-                    'year': year,
+                    'count':     m_id,
+                    'title':     title,
+                    'plot':      textbody,
+                    'date':      date,
+                    'year':      year,
                     'premiered': aired,
-                    'aired': aired,
-                    'duration': attributes.get('duration', ''),
+                    'aired':     aired,
+                    'duration':  attributes.get('duration', ''),
                 },
                 'properties': {
-                    'StationName': self.plugin.get_string(30000),
+                    'StationName':  self.plugin.get_string(30000),
                     'fanart_image': self.fanart
                 },
-                'path': pathurl,
-                'thumbnail': thumbnail,
+                'path':        pathurl,
+                'thumbnail':   thumbnail,
+                'icon':        icon,
                 'is_playable': is_playable
             }
             if mediatype:
@@ -244,7 +254,8 @@ class TripleR():
             items.insert(0,
                 {
                     'label': self.plugin.get_string(30065) % (self_date),
-                    'path': f'{self.url}/schedule?picker={self_date}'
+                    'path':  f'{self.url}/schedule?picker={self_date}',
+                    'icon':   'DefaultPVRGuide.png'
                 }
             )
         elif 'giveaways' in segments:
@@ -256,14 +267,16 @@ class TripleR():
                     items.append(
                         {
                             'label': self.nextpage,
-                            'path': f'{self.url}{links["next"]}'
+                            'path':  f'{self.url}{links["next"]}',
+                            'icon':   'DefaultMusicSearch.png'
                         }
                     )
                 if links.get('last'):
                     items.append(
                         {
-                            'label': self.lastpage,
-                            'path': f'{self.url}{links["last"]}'
+                            'label':  self.lastpage,
+                            'path':  f'{self.url}{links["last"]}',
+                            'icon':   'DefaultMusicVideoTitle.pngg'
                         }
                     )
         
