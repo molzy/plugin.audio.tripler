@@ -25,6 +25,10 @@ msgctxt "Addon Description"
 msgid "For more than 40 years Triple R has shaped and inspired the culture of Melbourne. Since its inception as an educational broadcaster in 1976, Triple R has become Australia's most influential community radio station with nearly 21,000 paid subscribers and broadcasting live to over 1,000,000 listeners per month across FM and digital (DAB+ digital radio, podcasts and online). Broadcasting on 102.7FM and 3RRR Digital, the Triple R grid houses over 60 diverse programs. Music shows cover every genre imaginable from pop to punk rock, from R&B and electro to jazz, hip hop, country and metal. Specialist talks programs delve into topics as varied as the environment, human rights, politics, medical issues, gardening, cultural ventures and local interests."
 msgstr ""
 
+msgctxt "#30999"
+msgid ""
+msgstr ""
+
 #Plugin name
 
 msgctxt "#30000"
@@ -68,11 +72,31 @@ msgid "Username"
 msgstr ""
 
 msgctxt "#30013"
-msgid "Password"
+msgid "Sign In"
 msgstr ""
 
 msgctxt "#30014"
-msgid "Hide Login Messages"
+msgid "Sign Out"
+msgstr ""
+
+msgctxt "#30015"
+msgid "Enter Username"
+msgstr ""
+
+msgctxt "#30016"
+msgid "Enter Password"
+msgstr ""
+
+msgctxt "#30017"
+msgid "Username"
+msgstr ""
+
+msgctxt "#30018"
+msgid "Sign in to your Triple R account using your username and password"
+msgstr ""
+
+msgctxt "#30019"
+msgid "Sign out of your Triple R account"
 msgstr ""
 
 msgctxt "#30032"
@@ -168,11 +192,11 @@ msgid "Is your subscription active?"
 msgstr ""
 
 msgctxt "#30076"
-msgid "Subscribe and login to enter!"
+msgid "Subscribe and sign in to enter!"
 msgstr ""
 
 msgctxt "#30077"
-msgid "%s logged in"
+msgid "%s signed in"
 msgstr ""
 
 msgctxt "#30078"
@@ -180,21 +204,33 @@ msgid "Thanks for subscribing!"
 msgstr ""
 
 msgctxt "#30079"
-msgid "Login failure"
-msgstr ""
-
-msgctxt "#30080"
-msgid "%s could not log in"
-msgstr ""
-
-msgctxt "#30081"
-msgid "https://www.rrr.org.au/subscribe - Subscribe and login to enter the below giveaways!"
+msgid "%s signed out"
 msgstr ""
 
 msgctxt "#30082"
-msgid "https://www.rrr.org.au/subscribe - Subscribe and login to listen to all audio archives!"
+msgid "https://www.rrr.org.au/subscribe - Subscribe and sign in to enter the below giveaways!"
 msgstr ""
 
 msgctxt "#30083"
+msgid "https://www.rrr.org.au/subscribe - Subscribe and sign in to listen to all audio archives!"
+msgstr ""
+
+msgctxt "#30084"
 msgid "Subscribe To Listen"
+msgstr ""
+
+msgctxt "#30085"
+msgid "Sign in failure"
+msgstr ""
+
+msgctxt "#30086"
+msgid "%s could not sign in"
+msgstr ""
+
+msgctxt "#30087"
+msgid "Sign out failure"
+msgstr ""
+
+msgctxt "#30088"
+msgid "%s could not sign out"
 msgstr ""

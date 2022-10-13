@@ -2,9 +2,10 @@ from resources.lib.scraper import USER_AGENT
 
 from urllib.request import Request, build_opener, HTTPCookieProcessor
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 
 import http.cookiejar
-import os, time, hashlib
+import os, time
 
 class TripleRWebsite():
     def __init__(self, cookiepath):
@@ -13,7 +14,10 @@ class TripleRWebsite():
 
     def _loadcj(self):
         if os.path.isfile(self._cookiepath):
-            cj.load(self._cookiepath)
+            self.cj.load(self._cookiepath)
+            return True
+        else:
+            return False
 
     def _delcj(self):
         self.cj = http.cookiejar.LWPCookieJar()
@@ -28,53 +32,7 @@ class TripleRWebsite():
         except:
             return None
 
-    def _mtimecj(self):
-        mtime = self._mtime(self._cookiepath)
-        if mtime:
-            if (time.time() - mtime) < (24*60*60):
-                return True
-            else:
-                self._delcj()
-
-        return None
-
-    def _mtimehash(self):
-        mtime = self._mtime(self._cookiepath + '.hash')
-        if mtime:
-            if (time.time() - mtime) < (60):
-                return True
-        return None
-
-    def _hash(self, username, password):
-        return hashlib.sha256(bytes(f'{username} - {password}', 'ascii')).hexdigest()[-32:]
-
-    def _cmphash(self, username, password):
-        cache = self._cookiepath + '.hash'
-        hashvalue = self._hash(username, password)
-        if os.path.isfile(cache):
-            try:
-                hashcache = open(cache, 'r').read()
-                return hashvalue == hashcache
-            except:
-                pass
-        return False
-
-    def _writehash(self, username, password):
-        cache = self._cookiepath + '.hash'
-        hashvalue = self._hash(username, password)
-        try:
-            open(cache, 'w').write(hashvalue)
-            return True
-        except:
-            return False
-
-    def _delhash(self):
-        try:
-            os.remove(self._cookiepath + '.hash')
-        except:
-            pass
-
-    def request(self, url, data):
+    def request(self, url, data=None):
         if data:
             req = Request(url, data.encode())
         else:
@@ -83,20 +41,21 @@ class TripleRWebsite():
 
         opener = build_opener(HTTPCookieProcessor(self.cj))
 
-        response = opener.open(req)
+        try:
+            response = opener.open(req)
+        except HTTPError as e:
+            return e
+
         source = response.read().decode()
         response.close()
 
         return source
 
     def login(self, username, password):
-        if self._cmphash(username, password):
-            if self._mtimecj():
-                return True
-            elif self._mtimehash():
-                return False
-        else:
-            self._delhash()
+        if password is None and self._loadcj():
+            account_url = 'https://www.rrr.org.au/account'
+            source = self.request(account_url)
+            return self._check_login(source, username)
 
         if username and password:
             login_url = 'https://www.rrr.org.au/sign-in'
@@ -108,10 +67,12 @@ class TripleRWebsite():
                 }
             )
 
-            source = self.request(login_url, login_data)
+            source = self.request(login_url, data=login_data)
 
-            self._writehash(username, password)
-            if self._check_login(source, username):
+            if isinstance(source, HTTPError):
+                return False
+
+            if source and self._check_login(source, username):
                 self.cj.save(self._cookiepath)
                 return self.cj
         else:
@@ -119,6 +80,19 @@ class TripleRWebsite():
 
     def _check_login(self, source, username):
         if username.lower() in source.lower():
+            return True
+        else:
+            return False
+
+    def logout(self):
+        logout_url = 'https://www.rrr.org.au/sign-in'
+        logout_data = urlencode(
+            {
+                '_csrf': ['', 'javascript-disabled'],
+            }
+        )
+        if self.request(logout_url, data=logout_data):
+            self._delcj()
             return True
         else:
             return False
@@ -133,7 +107,12 @@ class TripleRWebsite():
                 os.remove(cache)
 
         check_url = 'https://www.rrr.org.au/account/check-active.json'
-        source = self.request(check_url, None)
+        source = self.request(check_url)
+        if isinstance(source, HTTPError):
+            if source.code == 500:
+                return True
+            else:
+                return False
         result = self._check_subscription(source)
         open(cache, 'w').write(str(result))
         return result

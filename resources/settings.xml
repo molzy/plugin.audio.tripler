@@ -3,51 +3,65 @@
 	<section id="plugin.audio.tripler">
 		<category id="subscriber account" label="30010" help="">
 			<group id="1">
-				<setting id="use-account" type="boolean" label="30011" help="">
-					<level>0</level>
+				<setting id="authenticated" type="boolean" label="30999" help="">
+					<level>4</level>
 					<default>false</default>
-					<control type="toggle"/>
 				</setting>
-				<setting id="username" type="string" label="30012" help="">
+				<setting id="fullname" type="string" label="30017" help="">
 					<level>0</level>
 					<default/>
+					<enable>false</enable>
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
 					<dependencies>
-						<dependency type="enable">
-							<condition operator="!is" setting="use-account">false</condition>
+						<dependency type="visible">
+							<condition operator="!is" setting="authenticated">false</condition>
 						</dependency>
 					</dependencies>
 					<control type="edit" format="string">
 						<heading>30012</heading>
 					</control>
 				</setting>
-				<setting id="password" type="string" label="30013" help="">
+				<setting id="username" type="string" label="30012" help="">
 					<level>0</level>
 					<default/>
+					<enable>false</enable>
 					<constraints>
 						<allowempty>true</allowempty>
 					</constraints>
 					<dependencies>
-						<dependency type="enable">
-							<condition operator="!is" setting="use-account">false</condition>
+						<dependency type="visible">
+							<condition operator="!is" setting="authenticated">false</condition>
 						</dependency>
 					</dependencies>
 					<control type="edit" format="string">
-						<heading>30013</heading>
-						<hidden>true</hidden>
+						<heading>30012</heading>
 					</control>
 				</setting>
-				<setting id="hide-login-msgs" type="boolean" label="30014" help="">
+				<setting id="sign-in" type="action" label="30013" help="30018">
 					<level>0</level>
-					<default>false</default>
+					<data>RunPlugin("plugin://plugin.audio.tripler/sign-in")</data>
 					<dependencies>
-						<dependency type="enable">
-							<condition operator="!is" setting="use-account">false</condition>
+						<dependency type="visible">
+							<condition operator="!is" setting="authenticated">true</condition>
 						</dependency>
 					</dependencies>
-					<control type="toggle"/>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
+				</setting>
+				<setting id="sign-out" type="action" label="30014" help="30019">
+					<level>0</level>
+					<data>RunPlugin("plugin://plugin.audio.tripler/sign-out")</data>
+					<dependencies>
+						<dependency type="visible">
+							<condition operator="!is" setting="authenticated">false</condition>
+						</dependency>
+					</dependencies>
+					<control type="button" format="action">
+						<close>true</close>
+					</control>
 				</setting>
 			</group>
 		</category>

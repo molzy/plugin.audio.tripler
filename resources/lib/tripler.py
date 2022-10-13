@@ -17,6 +17,7 @@ class TripleR():
         self.plugin = Plugin()
         self.url = 'plugin://plugin.audio.tripler'
         self.addon = Addon()
+        self.dialog = xbmcgui.Dialog()
         self._respath = os.path.join(self.addon.getAddonInfo('path'), 'resources')
         self.icon = os.path.join(self._respath, 'icon.png')
         self.fanart = os.path.join(self._respath, 'fanart.png')
@@ -28,7 +29,7 @@ class TripleR():
 
     def _notify(self, title, message):
         xbmc.log(f'{title} - {message}', xbmc.LOGDEBUG)
-        xbmcgui.Dialog().notification(title, message, icon=self.icon)
+        self.dialog.notification(title, message, icon=self.icon)
 
     def run(self):
         self.plugin.run()
@@ -51,11 +52,18 @@ class TripleR():
         if len(segments[0]) < 1:
             return self.main_menu()
         elif 'subscription_required' in segments:
-            self._notify(self.plugin.get_string(30083), self.plugin.get_string(30082))
+            self._notify(self.plugin.get_string(30084), self.plugin.get_string(30083))
         elif 'settings' in segments:
+            self.login()
             Addon().openSettings()
+        elif 'sign-in' in segments:
+            if self.sign_in():
+                xbmc.executebuiltin("Container.Refresh")
+        elif 'sign-out' in segments:
+            self.sign_out()
+            xbmc.executebuiltin("Container.Refresh")
         elif 'entries' in segments:
-            if self.addon.getSetting('use-account') == 'true':
+            if self.addon.getSetting('authenticated') == 'true':
                 self.subscriber_giveaway(path=path)
             else:
                 self._notify(self.plugin.get_string(30073), self.plugin.get_string(30076))
@@ -76,8 +84,16 @@ class TripleR():
             {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes'},
             {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events'},
             {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways'},
-            {'label': self.plugin.get_string(30009), 'path': f'{self.url}/settings'},
         ]
+        if self.login():
+            username = self.addon.getSetting('username')
+            items.append(
+                {'label': f'{self.plugin.get_string(30014)} - ({username})', 'path': f'{self.url}/sign-out'}
+            )
+        else:
+            items.append(
+                {'label': self.plugin.get_string(30013), 'path': f'{self.url}/sign-in'}
+            )
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
@@ -100,7 +116,7 @@ class TripleR():
     def _sub_item(self, text):
         item = {
             'label': text,
-            'path': f'{self.url}/settings',
+            'path': f'{self.url}/sign-in',
             'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
         }
         return item
@@ -108,7 +124,7 @@ class TripleR():
     def select_date(self, self_date):
         self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
         dialog_title    = self.plugin.get_string(30065) % (self.plugin.get_string(30033))
-        picked_date_str = xbmcgui.Dialog().input(dialog_title, defaultt=str(self_date_str), type=xbmcgui.INPUT_DATE)
+        picked_date_str = self.dialog.input(dialog_title, defaultt=str(self_date_str), type=xbmcgui.INPUT_DATE)
 
         if picked_date_str:
             date_str    = '-'.join([i.zfill(2) for i in picked_date_str.replace(' ', '').split('/')[::-1]])
@@ -148,7 +164,7 @@ class TripleR():
 
             if attributes.get('subscription_required'):
                 if not self.login() or not self.website.subscribed():
-                    title   = f'{self.plugin.get_string(30083)} - {title}'
+                    title   = f'{self.plugin.get_string(30084)} - {title}'
                     pathurl = '{}{}'.format(self.url, '/subscription_required')
                     is_playable = False
 
@@ -227,7 +243,7 @@ class TripleR():
                 }
             )
         elif 'giveaways' in segments and len(segments) < 2 and (not self.login() or not self.website.subscribed()):
-            items.insert(0, self._sub_item(self.plugin.get_string(30081)))
+            items.insert(0, self._sub_item(self.plugin.get_string(30082)))
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
@@ -246,28 +262,51 @@ class TripleR():
                     )
         
         if 'archives' in segments and (not self.login() or not self.website.subscribed()):
-            items.insert(0, self._sub_item(self.plugin.get_string(30082)))
+            items.insert(0, self._sub_item(self.plugin.get_string(30083)))
 
         return items
 
-    def login(self):
-        if self.addon.getSetting('use-account') != 'true':
+    def sign_in(self):
+        username = self.dialog.input(self.plugin.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)
+        if username == '':
             return False
+        password = self.dialog.input(self.plugin.get_string(30016), type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
+        if password == '':
+            return False
+        return self.login(prompt=True, username=username, password=password)
 
-        username = self.addon.getSetting('username')
-        password = self.addon.getSetting('password')
-        hidesuccess = self.addon.getSetting('hide-login-msgs')
+    def login(self, prompt=False, username=None, password=None):
+        if username is None:
+            username = self.addon.getSetting('username')
 
         logged_in = self.website.login(username, password)
 
         if logged_in:
-            if hidesuccess == 'false':
+            if prompt:
                 self._notify(self.plugin.get_string(30077) % (username), self.plugin.get_string(30078))
-            self.account = logged_in
+            self.addon.setSetting('authenticated', 'true')
+            self.addon.setSetting('username', username)
         else:
-            self._notify(self.plugin.get_string(30079), self.plugin.get_string(30080) % (username))
+            if prompt:
+                self._notify(self.plugin.get_string(30079), self.plugin.get_string(30080) % (username))
+            self.addon.setSetting('authenticated', 'false')
+            self.addon.setSetting('username', '')
 
         return logged_in
+
+    def sign_out(self, username=None):
+        if username is None:
+            username = self.addon.getSetting('username')
+        if self.website.logout():
+            self.addon.setSetting('authenticated', 'false')
+            if username:
+                self._notify(self.plugin.get_string(30079) % (username), self.plugin.get_string(30078))
+            self.addon.setSetting('username', '')
+            return True
+        else:
+            if username:
+                self._notify(self.plugin.get_string(30088) % (username), self.plugin.get_string(30087))
+            return False
 
     def subscriber_giveaway(self, path):
         if self.login():
