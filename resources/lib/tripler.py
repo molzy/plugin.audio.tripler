@@ -247,7 +247,7 @@ class TripleR():
                     'path': f'{self.url}/schedule?picker={self_date}'
                 }
             )
-        elif 'giveaways' in segments and len(segments) < 2:
+        elif 'giveaways' in segments:
             if not self.login() or not self.subscribed():
                 items.insert(0, self._sub_item(self.plugin.get_string(30082)))
         elif links and links.get('next'):
