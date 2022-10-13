@@ -150,6 +150,8 @@ class TripleR():
         items = []
 
         for menuitem in data:
+            if menuitem is None:
+                continue
             m_id, m_type = menuitem.get('id', ''), menuitem.get('type', '')
             m_links      = menuitem.get('links', {})
             m_self       = m_links.get('self', '/')
