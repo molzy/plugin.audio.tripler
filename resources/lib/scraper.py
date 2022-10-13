@@ -369,9 +369,11 @@ class ExternalMedia:
     RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
     YOUTUBE_PLUGIN_BASE_URL          = 'plugin://plugin.video.youtube/play/'
     YOUTUBE_VIDEO_PLUGIN_FORMAT      = '{}?video_id={}'
+    YOUTUBE_VIDEO_ART_URL_FORMAT     = 'https://i.ytimg.com/vi/{}/hqdefault.jpg'
 
     RE_YOUTUBE_PLAYLIST_ID           = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)\/.+\?.*list=(?P<media_id>[\w\-]+)')
     YOUTUBE_PLAYLIST_PLUGIN_FORMAT   = '{}?playlist_id={}&order=default&play=1'
+    YOUTUBE_PLAYLIST_ART_URL         = 'https://youtube.com/oembed?url=https%3A//www.youtube.com/playlist%3Flist%3D{}&format=json'
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
 
@@ -419,6 +421,11 @@ class ExternalMedia:
                         if fetch_album_art:
                             if plugin == 'bandcamp':
                                 thumbnail = self.bandcamp_album_art(media_id)
+                            elif plugin == 'youtube_playlist':
+                                thumbnail = self.youtube_playlist_art(media_id)
+                            elif plugin == 'youtube':
+                                thumbnail = YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
+
                         break
 
             matches.append(
@@ -441,6 +448,10 @@ class ExternalMedia:
             return f'https://f4.bcbits.com/img/a{art_id}_2.jpg'
 
         return None
+
+    def youtube_playlist_art(self, playlist_id):
+        api_url = self.YOUTUBE_PLAYLIST_ART_URL.format(playlist_id)
+        return get_json_obj(api_url).get('thumbnail_url')
 
 
 class FeaturedAlbumScraper(Scraper, ExternalMedia):
