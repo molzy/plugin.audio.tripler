@@ -51,7 +51,7 @@ class TripleR():
 
         if len(segments[0]) < 1:
             return self.main_menu()
-        elif 'subscription_required' in segments:
+        elif 'subscribe' in segments:
             self._notify(self.plugin.get_string(30084), self.plugin.get_string(30083))
         elif 'settings' in segments:
             self.login()
@@ -118,7 +118,7 @@ class TripleR():
     def _sub_item(self, text):
         item = {
             'label': text,
-            'path': f'{self.url}/sign-in',
+            'path': f'{self.url}/settings',
             'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
         }
         return item
@@ -142,7 +142,9 @@ class TripleR():
 
         for menuitem in data:
             m_id, m_type = menuitem.get('id', ''), menuitem.get('type', '')
-            m_self       = menuitem.get('links', {}).get('self', '/')
+            m_links      = menuitem.get('links', {})
+            m_self       = m_links.get('self', '/')
+            m_sub        = m_links.get('subscribe')
             attributes   = menuitem.get('attributes', {})
             if attributes is None:
                 continue
@@ -164,10 +166,10 @@ class TripleR():
                 pathurl     = attributes.get('url')
                 is_playable = True
 
-            if attributes.get('subscription_required'):
+            if m_sub:
                 if not self.login() or not self.subscribed():
                     title   = f'{self.plugin.get_string(30084)} - {title}'
-                    pathurl = '{}{}'.format(self.url, '/subscription_required')
+                    pathurl = f'{self.url}{m_sub}'
                     is_playable = False
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
@@ -179,7 +181,7 @@ class TripleR():
                 dateend     = datetime.fromisoformat(attributes['end'])
                 start       = datetime.strftime(datestart, '%H:%M')
                 end         = datetime.strftime(dateend,   '%H:%M')
-                textbody    = '\n'.join((f'{start} - {end}', textbody))
+                textbody    = f'{start} - {end}\n{textbody}'
                 title       = ' - '.join((start, end, title))
 
 
@@ -194,7 +196,7 @@ class TripleR():
                 mediatype   = 'song'
                 info_type   = 'video'
             else:
-                pathurl     = '{}{}'.format(self.url, m_self)
+                pathurl     = f'{self.url}{m_self}'
                 is_playable = False
                 mediatype   = ''
                 info_type   = 'video'
@@ -253,14 +255,14 @@ class TripleR():
                     items.append(
                         {
                             'label': self.nextpage,
-                            'path': '{}/{}'.format(self.url, links['next'])
+                            'path': f'{self.url}{links["next"]}'
                         }
                     )
                 if links.get('last'):
                     items.append(
                         {
                             'label': self.lastpage,
-                            'path': '{}/{}'.format(self.url, links['last'])
+                            'path': f'{self.url}{links["last"]}'
                         }
                     )
         

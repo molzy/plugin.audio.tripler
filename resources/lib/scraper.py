@@ -1369,7 +1369,7 @@ class AudioItem:
             }
         }
         if self.subscription_required:
-            item['attributes']['subscription_required'] = True
+            item['links']['subscribe'] = '/subscribe'
         return item
 
 
