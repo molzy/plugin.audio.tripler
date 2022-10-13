@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 from urllib.error import HTTPError
 
 import http.cookiejar
-import os, time
+import os
 
 class TripleRWebsite():
     def __init__(self, cookiepath):
@@ -26,12 +26,6 @@ class TripleRWebsite():
         except:
             pass
 
-    def _mtime(self, path):
-        try:
-            return os.path.getmtime(path)
-        except:
-            return None
-
     def request(self, url, data=None):
         if data:
             req = Request(url, data.encode())
@@ -51,17 +45,20 @@ class TripleRWebsite():
 
         return source
 
-    def login(self, username, password):
+    def login(self, emailaddress, password):
         if password is None and self._loadcj():
             account_url = 'https://www.rrr.org.au/account'
             source = self.request(account_url)
-            return self._check_login(source, username)
+            if self._check_login(source, emailaddress):
+                return self.cj
+            else:
+                return False
 
-        if username and password:
+        if emailaddress and password:
             login_url = 'https://www.rrr.org.au/sign-in'
             login_data = urlencode(
                 {
-                    'subscriber_account[email]': username,
+                    'subscriber_account[email]': emailaddress,
                     'subscriber_account[password]': password,
                     '_csrf': ['', 'javascript-disabled'],
                 }
@@ -72,40 +69,38 @@ class TripleRWebsite():
             if isinstance(source, HTTPError):
                 return False
 
-            if source and self._check_login(source, username):
+            if source and self._check_login(source, emailaddress):
                 self.cj.save(self._cookiepath)
                 return self.cj
         else:
             return False
 
-    def _check_login(self, source, username):
-        if username.lower() in source.lower():
+    def _check_login(self, source, emailaddress):
+        if emailaddress.lower() in source.lower():
             return True
         else:
             return False
 
     def logout(self):
-        logout_url = 'https://www.rrr.org.au/sign-in'
+        logout_url = 'https://www.rrr.org.au/sign-out'
         logout_data = urlencode(
             {
                 '_csrf': ['', 'javascript-disabled'],
             }
         )
-        if self.request(logout_url, data=logout_data):
+        source = self.request(logout_url, data=logout_data)
+        if isinstance(source, HTTPError):
+            if source.code == 500:
+                return True
+            else:
+                return False
+        if source:
             self._delcj()
             return True
         else:
             return False
 
     def subscribed(self):
-        cache = self._cookiepath + '.sub'
-        mtime = self._mtime(cache)
-        if mtime:
-            if (time.time() - mtime) < (15*60):
-                return bool(open(cache, 'r').read())
-            else:
-                os.remove(cache)
-
         check_url = 'https://www.rrr.org.au/account/check-active.json'
         source = self.request(check_url)
         if isinstance(source, HTTPError):
@@ -113,9 +108,7 @@ class TripleRWebsite():
                 return True
             else:
                 return False
-        result = self._check_subscription(source)
-        open(cache, 'w').write(str(result))
-        return result
+        return self._check_subscription(source)
 
     def _check_subscription(self, source):
         if '"active":' in source and 'true' in source:

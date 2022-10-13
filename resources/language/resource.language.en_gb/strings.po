@@ -68,7 +68,7 @@ msgid "Use Account"
 msgstr ""
 
 msgctxt "#30012"
-msgid "Username"
+msgid "Email Address"
 msgstr ""
 
 msgctxt "#30013"
@@ -80,7 +80,7 @@ msgid "Sign Out"
 msgstr ""
 
 msgctxt "#30015"
-msgid "Enter Username"
+msgid "Enter Email Address"
 msgstr ""
 
 msgctxt "#30016"
@@ -88,14 +88,14 @@ msgid "Enter Password"
 msgstr ""
 
 msgctxt "#30017"
-msgid "Username"
+msgid "Full Name"
 msgstr ""
 
-msgctxt "#30018"
-msgid "Sign in to your Triple R account using your username and password"
+msgctxt "#30020"
+msgid "Sign in to your Triple R account using your email address and password"
 msgstr ""
 
-msgctxt "#30019"
+msgctxt "#30021"
 msgid "Sign out of your Triple R account"
 msgstr ""
 
