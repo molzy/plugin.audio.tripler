@@ -216,7 +216,7 @@ msgid "https://www.rrr.org.au/subscribe - Subscribe and sign in to listen to all
 msgstr ""
 
 msgctxt "#30084"
-msgid "Subscribe To Listen"
+msgid "Subscriber Only"
 msgstr ""
 
 msgctxt "#30085"
