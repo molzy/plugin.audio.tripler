@@ -146,6 +146,9 @@ class TripleR():
 
         return None
 
+    def playlist_item(self, path):
+        return (self.plugin.get_string(30002), path)
+
     def parse_programs(self, data, args, segments, links=None):
         items = []
 
@@ -156,6 +159,7 @@ class TripleR():
             m_links      = menuitem.get('links', {})
             m_self       = m_links.get('self', '/')
             m_sub        = m_links.get('subscribe')
+            m_playlist   = m_links.get('playlist')
             attributes   = menuitem.get('attributes', {})
             if attributes is None:
                 continue
@@ -250,6 +254,11 @@ class TripleR():
             }
             if mediatype:
                 item['info']['mediatype'] = mediatype
+
+            xbmc.log("playlist: " + str(m_playlist), xbmc.LOGINFO)
+            if m_playlist:
+                item['context_menu'] = [(self.plugin.get_string(30002), f'Container.Update({self.url}{m_playlist})')]
+                item['replace_context_menu'] = True
 
             xbmc.log("attributes: " + str(pathurl), xbmc.LOGDEBUG)
 

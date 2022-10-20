@@ -39,6 +39,10 @@ msgctxt "#30001"
 msgid "Listen Live!"
 msgstr ""
 
+msgctxt "#30002"
+msgid "View Playlist"
+msgstr ""
+
 msgctxt "#30004"
 msgid "> Next Page"
 msgstr ""

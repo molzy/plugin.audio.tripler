@@ -358,9 +358,13 @@ class ArchiveScraper(Scraper):
 class ExternalMedia:
     RE_BANDCAMP_ALBUM_ID             = re.compile(r'https://bandcamp.com/EmbeddedPlayer/.*album=(?P<media_id>[^/]+)')
     RE_BANDCAMP_ALBUM_ART            = re.compile(r'"art_id":(\w+)')
-    BANDCAMP_PLUGIN_BASE_URL         = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=list_songs'
-    BANDCAMP_PLUGIN_FORMAT           = '{}&album_id={}&item_type=a'
+    BANDCAMP_ALBUM_PLUGIN_BASE_URL   = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=list_songs'
+    BANDCAMP_ALBUM_PLUGIN_FORMAT     = '{}&album_id={}&item_type=a'
     BANDCAMP_ALBUM_ART_URL           = 'https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=a&tralbum_id={}'
+
+    RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
+    BANDCAMP_TRACK_PLUGIN_BASE_URL   = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=url'
+    BANDCAMP_TRACK_PLUGIN_FORMAT     = '{}&url={}'
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
     SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/'
@@ -380,8 +384,13 @@ class ExternalMedia:
     RE_MEDIA_URLS = {
         'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
-            'base':   BANDCAMP_PLUGIN_BASE_URL,
-            'format': BANDCAMP_PLUGIN_FORMAT,
+            'base':   BANDCAMP_ALBUM_PLUGIN_BASE_URL,
+            'format': BANDCAMP_ALBUM_PLUGIN_FORMAT,
+        },
+        'bandcamp_track': {
+            're':     RE_BANDCAMP_TRACK_ID,
+            'base':   BANDCAMP_TRACK_PLUGIN_BASE_URL,
+            'format': BANDCAMP_TRACK_PLUGIN_FORMAT,
         },
         'soundcloud': {
             're':     RE_SOUNDCLOUD_PLAYLIST_ID,
@@ -405,13 +414,12 @@ class ExternalMedia:
     }
 
     def media_items(self, iframes, fetch_album_art=False):
-        pagesoup = self.soup()
         matches = []
 
         for iframe in iframes:
             if not iframe.get('src'):
                 continue
-            url, thumbnail = None, None
+            url, thumbnail, media_id = None, None, None
             for plugin, info in self.RE_MEDIA_URLS.items():
                 plugin_match = re.match(info.get('re'), iframe.get('src'))
                 if plugin_match:
@@ -424,7 +432,7 @@ class ExternalMedia:
                             elif plugin == 'youtube_playlist':
                                 thumbnail = self.youtube_playlist_art(media_id)
                             elif plugin == 'youtube':
-                                thumbnail = YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
+                                thumbnail = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
 
                         break
 
@@ -550,7 +558,12 @@ class ProgramBroadcastScraper(Scraper):
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/{item}'
 
     def generate(self):
-        return {'data': []}
+        return {
+            'data': [
+                ProgramBroadcastTrack(item).to_dict()
+                for item in self.soup().findAll(class_='audio-summary__track clearfix')
+            ],
+        }
 
 
 class ProgramPodcastScraper(Scraper):
@@ -1247,6 +1260,65 @@ class BroadcastTrack(Resource):
         ]
 
 
+class ProgramBroadcastTrack(Resource, ExternalMedia):
+    _media = {}
+
+    def id(self):
+        if self.media:
+            return self.media
+        else:
+            return f'{self.artist}.{self.title}'
+
+    @property
+    def type(self):
+        if self.media:
+            return self._media.get('plugin')
+        else:
+            return super().type
+
+    @property
+    def artist(self):
+        return self._itemobj.find(class_='audio-summary__track-artist').text.strip()
+
+    @property
+    def broadcast_artist(self):
+        params = { 'q': self.artist }
+        return '/tracks/search?' + urlencode(params)
+
+    @property
+    def broadcast_track(self):
+        params = { 'q': f'{self.title} {self.artist}' }
+        return '/tracks/search?' + urlencode(params)
+
+    @property
+    def title(self):
+        return self._itemobj.find(class_='audio-summary__track-title').text.strip()
+
+    @property
+    def media(self):
+        if not self._media:
+            href = self._itemobj.find(class_='audio-summary__track-title').attrs.get('href')
+            if href:
+                self._media = self.media_items([{'src': href}])[0]
+
+        return self._media.get('media_id')
+
+    def attributes(self):
+        return {
+            'artist': self.artist,
+            'title':  self.title,
+        }
+
+    def links(self):
+        if self.media:
+            return {
+                'broadcast_artist': self.broadcast_artist,
+                'broadcast_track': self.broadcast_track,
+            }
+        else:
+            return {}
+
+
 class AudioItem:
 
     @classmethod
@@ -1306,6 +1378,13 @@ class AudioItem:
     @property
     def subscription_required(self):
         return self._itemobj.get('subscription_required')
+
+    @property
+    def playlist(self):
+        playlist = self._item.find(lambda tag:tag.name == 'a' and 'View playlist' in tag.text)
+        if playlist:
+            return Scraper.resource_path_for(playlist.attrs.get('href', '#').split('#')[0])
+        return None
 
     @property
     def source_id(self):
@@ -1381,6 +1460,8 @@ class AudioItem:
         }
         if self.subscription_required:
             item['links']['subscribe'] = '/subscribe'
+        if self.playlist:
+            item['links']['playlist'] = self.playlist
         return item
 
 
