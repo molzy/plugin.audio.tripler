@@ -166,6 +166,7 @@ class TripleR():
 
             textbody        = attributes.get('textbody', '')
             thumbnail       = attributes.get('thumbnail', '')
+            fanart          = attributes.get('background', self.fanart)
             icon            = thumbnail
 
             if attributes.get('subtitle'):
@@ -245,7 +246,7 @@ class TripleR():
                 },
                 'properties': {
                     'StationName':  self.plugin.get_string(30000),
-                    'fanart_image': self.fanart
+                    'fanart_image': fanart
                 },
                 'path':        pathurl,
                 'thumbnail':   thumbnail,
@@ -255,12 +256,9 @@ class TripleR():
             if mediatype:
                 item['info']['mediatype'] = mediatype
 
-            xbmc.log("playlist: " + str(m_playlist), xbmc.LOGINFO)
             if m_playlist:
                 item['context_menu'] = [(self.plugin.get_string(30002), f'Container.Update({self.url}{m_playlist})')]
                 item['replace_context_menu'] = True
-
-            xbmc.log("attributes: " + str(pathurl), xbmc.LOGDEBUG)
 
             listitem = ListItem.from_dict(**item)
             items.append(listitem)

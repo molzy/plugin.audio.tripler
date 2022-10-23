@@ -419,7 +419,7 @@ class ExternalMedia:
         for iframe in iframes:
             if not iframe.get('src'):
                 continue
-            url, thumbnail, media_id = None, None, None
+            url, thumbnail, media_id, background = None, None, None, None
             for plugin, info in self.RE_MEDIA_URLS.items():
                 plugin_match = re.match(info.get('re'), iframe.get('src'))
                 if plugin_match:
@@ -428,32 +428,40 @@ class ExternalMedia:
                         url = info.get('format').format(info.get('base'), media_id)
                         if fetch_album_art:
                             if plugin == 'bandcamp':
-                                thumbnail = self.bandcamp_album_art(media_id)
+                                album_art  = self.bandcamp_album_art(media_id)
+                                thumbnail  = album_art['art']
+                                background = album_art['band']
                             elif plugin == 'youtube_playlist':
-                                thumbnail = self.youtube_playlist_art(media_id)
+                                thumbnail  = self.youtube_playlist_art(media_id)
                             elif plugin == 'youtube':
-                                thumbnail = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
+                                thumbnail  = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
 
                         break
 
             matches.append(
                 {
-                    'url':       url if media_id else '',
-                    'media_id':  media_id,
-                    'src':       iframe.get('src'),
-                    'attrs':     iframe.get('attrs'),
-                    'plugin':    plugin if plugin_match else None,
-                    'thumbnail': thumbnail,
+                    'url':        url if media_id else '',
+                    'media_id':   media_id,
+                    'src':        iframe.get('src'),
+                    'attrs':      iframe.get('attrs'),
+                    'plugin':     plugin if plugin_match else None,
+                    'thumbnail':  thumbnail,
+                    'background': background,
                 }
             )
 
         return matches
 
     def bandcamp_album_art(self, album_id):
-        api_url = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
-        art_id = get_json_obj(api_url).get('art_id')
+        api_url  = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
+        json_obj = get_json_obj(api_url)
+        art_id   = json_obj.get('art_id')
+        band_id  = json_obj.get('band', {}).get('image_id')
         if art_id:
-            return f'https://f4.bcbits.com/img/a{art_id}_2.jpg'
+            return {
+                'art':   f'https://f4.bcbits.com/img/a{art_id}_5.jpg',
+                'band':  f'https://f4.bcbits.com/img/{band_id}_20.jpg',
+            }
 
         return None
 
@@ -481,7 +489,7 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
             for iframe in pagesoup.findAll('iframe')
             if iframe.attrs.get('src')
         ]
-        album_urls   = self.media_items(iframes)
+        album_urls   = self.media_items(iframes, fetch_album_art=True)
 
         album_copy   = '\n'.join([p.text for p in pagesoup.find(class_='feature-album__copy').findAll("p", recursive=False)])
         album_image  = pagesoup.find(class_='audio-summary__album-artwork')
@@ -492,9 +500,11 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
         if len(album_urls) > 0:
             album_type = album_urls[0].get('plugin')
             album_id   = album_urls[0].get('media_id')
+            background = album_urls[0].get('background')
         else:
             album_type = 'featured_album'
             album_id   = self.resource_path.split('/')[-1]
+            background = None
 
         data = [
             {
@@ -513,6 +523,9 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
 
         if album_image:
             data[0]['attributes']['thumbnail']  = album_image.attrs.get('src')
+
+        if background:
+            data[0]['attributes']['background'] = background
 
         return {
             'data': data,
@@ -671,6 +684,9 @@ class SoundscapeScraper(Scraper, ExternalMedia):
                 'artist':     media.get('attrs').get('artist'),
                 'thumbnail':  media.get('thumbnail'),
             }
+
+            if media.get('background'):
+                attributes['background'] = media.get('background')
 
             if media.get('plugin'):
                 # dataitem['id']   = re.sub(' ', '-', media.get('attrs').get('id')).lower()
