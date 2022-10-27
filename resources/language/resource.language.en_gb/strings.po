@@ -55,6 +55,10 @@ msgctxt "#30007"
 msgid "Dated %s, Melbourne time."
 msgstr ""
 
+msgctxt "#30008"
+msgid "Play with %s"
+msgstr ""
+
 msgctxt "#30009"
 msgid "Settings"
 msgstr ""
@@ -255,6 +259,10 @@ msgctxt "#30079"
 msgid "%s signed out"
 msgstr ""
 
+msgctxt "#30081"
+msgid "Subscribe To Listen"
+msgstr ""
+
 msgctxt "#30082"
 msgid "https://www.rrr.org.au/subscribe - Subscribe and sign in to enter the below giveaways!"
 msgstr ""
@@ -264,7 +272,7 @@ msgid "https://www.rrr.org.au/subscribe - Subscribe and sign in to listen to all
 msgstr ""
 
 msgctxt "#30084"
-msgid "Subscriber Only"
+msgid "Subscribers Only"
 msgstr ""
 
 msgctxt "#30085"
@@ -285,15 +293,19 @@ msgstr ""
 
 # Context Menus
 
+msgctxt "#30100"
+msgid "%s using the context menu."
+msgstr ""
+
 msgctxt "#30101"
 msgid "View Playlist"
 msgstr ""
 
 msgctxt "#30102"
-msgid "Search for Track"
+msgid "Search for this Track"
 msgstr ""
 
 msgctxt "#30103"
-msgid "Search for Artist"
+msgid "Search for this Artist"
 msgstr ""
 

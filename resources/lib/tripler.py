@@ -190,7 +190,7 @@ class TripleR():
                 artist      = attributes.get('artist')
                 if artist:
                     title   = f'{artist} - {title}'
-                textbody    = f'{textbody}\nPlay with {name}'
+                textbody    = f'{self.plugin.get_string(30008)}\n{textbody}' % (name)
                 pathurl     = self.media.parse_media_id(m_type, m_id)
 
                 if 'bandcamp' in m_type:
@@ -221,12 +221,12 @@ class TripleR():
             if m_sub:
                 if not self.login() or not self.subscribed():
                     icon        =  'OverlayLocked.png'
-                    title       = f'Subscribe To Listen - {title}'
-                    textbody    = f'{self.plugin.get_string(30084)}\n{textbody}'
+                    title       = f'{self.plugin.get_string(30081)} - {title}'
+                    textbody    = f'{self.plugin.get_string(30081)}\n{textbody}'
                     pathurl     = f'{self.url}{m_sub}'
                     is_playable = False
                 else:
-                    title       = f'Subscribers Only - {title}'
+                    title       = f'{self.plugin.get_string(30084)} - {title}'
 
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
@@ -265,6 +265,19 @@ class TripleR():
 
             icon = thumbnail
 
+            context_menu = []
+
+            if m_playlist:
+                textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30101))
+                context_menu.append(self.context_item(30101, m_playlist))
+
+            if 'broadcast_track' in m_links:
+                textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
+                context_menu.append(self.context_item(30102, m_links.get('broadcast_track')))
+
+            if 'broadcast_artist' in m_links:
+                context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
+
             item = {
                 'label':     title,
                 'label2':    aired,
@@ -290,17 +303,6 @@ class TripleR():
             }
             if mediatype:
                 item['info']['mediatype'] = mediatype
-
-            context_menu = []
-
-            if m_playlist:
-                context_menu.append(self.context_item(30101, m_playlist))
-
-            if 'broadcast_track' in m_links:
-                context_menu.append(self.context_item(30102, m_links.get('broadcast_track')))
-
-            if 'broadcast_artist' in m_links:
-                context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
 
             if context_menu:
                 item['context_menu'] = context_menu
