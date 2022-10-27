@@ -1155,7 +1155,6 @@ class ScheduleItem:
     def audio_item(self):
         return self._audio_item or {}
 
-
     def to_dict(self):
         attrs = {
             **self.content,
@@ -1173,14 +1172,19 @@ class ScheduleItem:
             'title': itemtitle,
         }
 
-        return {
+        item = {
             'type': itemtype,
             'id': itemid,
             'attributes': attrs,
             'links': {
                 'self': self.path
             }
-         }
+        }
+        playlist = ai.get('links', {}).get('playlist')
+        if playlist:
+            item['links']['playlist'] = playlist
+
+        return item
 
 
 class ItemType:
