@@ -74,7 +74,10 @@ class Media:
 
     def parse_media_id(self, plugin, media_id):
         info = self.RE_MEDIA_URLS.get(plugin, {})
-        return info.get('format').format(info.get('base'), media_id)
+        if info:
+            return info.get('format').format(info.get('base'), media_id)
+        else:
+            return ''
 
     def parse_art(self, art):
         if art and 'f4.bcbits.com' in art:
