@@ -13,6 +13,8 @@ class Media:
     RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
     RE_BANDCAMP_TRACK_BAND_ART       = re.compile(r'data-band="[^"]*image_id&quot;:(?P<band_art_id>\d+)}"')
 
+    RE_BANDCAMP_ART_QUALITY_SEARCH   = r'/img/(?P<art>[^_]+)_(?P<quality>\d+)\.jpg'
+
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
     SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/'
     SOUNDCLOUD_PLUGIN_FORMAT         = '{}?action=call&call=/playlists/{}'
@@ -67,8 +69,32 @@ class Media:
         },
     }
 
-    @classmethod
-    def parse_media_id(cls, plugin, media_id):
-        info = cls.RE_MEDIA_URLS.get(plugin, {})
+    def __init__(self, quality):
+        self.quality = quality
+
+    def parse_media_id(self, plugin, media_id):
+        info = self.RE_MEDIA_URLS.get(plugin, {})
         return info.get('format').format(info.get('base'), media_id)
 
+    def parse_art(self, art):
+        if art and 'f4.bcbits.com' in art:
+            band = '/img/a' not in art
+            quality = self._bandcamp_band_quality() if band else self._bandcamp_album_quality()
+            art = re.sub(self.RE_BANDCAMP_ART_QUALITY_SEARCH, f'/img/\g<art>_{quality}.jpg', art)
+        return art
+
+    def _bandcamp_band_quality(self):
+        if self.quality == 0:
+            return 1 # full resolution
+        if self.quality == 1:
+            return 10 # 1200px wide
+        if self.quality == 2:
+            return 25 # 700px wide
+
+    def _bandcamp_album_quality(self):
+        if self.quality == 0:
+            return 5 # 700px wide
+        if self.quality == 1:
+            return 2 # 350px wide
+        if self.quality == 2:
+            return 9 # 210px wide

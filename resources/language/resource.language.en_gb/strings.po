@@ -59,7 +59,7 @@ msgctxt "#30009"
 msgid "Settings"
 msgstr ""
 
-# Account
+# Settings - Account
 
 msgctxt "#30010"
 msgid "Subscriber Account"
@@ -99,6 +99,28 @@ msgstr ""
 
 msgctxt "#30021"
 msgid "Sign out of your Triple R account"
+msgstr ""
+
+# Settings - Image Quality
+
+msgctxt "#30022"
+msgid "Image Quality"
+msgstr ""
+
+msgctxt "#30023"
+msgid "Set the desired quality level for album art and band images"
+msgstr ""
+
+msgctxt "#30024"
+msgid "High"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Medium"
+msgstr ""
+
+msgctxt "#30026"
+msgid "Low"
 msgstr ""
 
 # Main Menu

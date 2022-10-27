@@ -91,6 +91,22 @@
 					</control>
 				</setting>
 			</group>
+			<group id="2">
+				<setting id="image_quality" type="integer" label="30022" help="30023">
+					<level>0</level>
+					<default>1</default>
+					<constraints>
+						<options>
+							<option label="30024">0</option>
+							<option label="30025">1</option>
+							<option label="30026">2</option>
+						</options>
+					</constraints>
+					<control type="list" format="string">
+						<heading>30022</heading>
+					</control>
+				</setting>
+			</group>
 		</category>
 	</section>
 </settings>

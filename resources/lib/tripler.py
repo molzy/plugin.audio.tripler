@@ -25,6 +25,9 @@ class TripleR():
         self.website    = TripleRWebsite(os.path.join(self._respath, 'cookies.lwp'))
         self._signed_in = -1
         self.supported_plugins = Media.RE_MEDIA_URLS.keys()
+        quality         = self.addon.getSetting('image_quality')
+        self.quality    = int(quality) if quality else 1
+        self.media      = Media(self.quality)
 
         self.nextpage   = self.plugin.get_string(30004)
         self.lastpage   = self.plugin.get_string(30005)
@@ -188,9 +191,15 @@ class TripleR():
                 if artist:
                     title   = f'{artist} - {title}'
                 textbody    = f'{textbody}\nPlay with {name}'
-                pathurl     = Media.parse_media_id(m_type, m_id)
-                if len(thumbnail) < 1:
-                    thumbnail   = 'DefaultMusicSongs.png'
+                pathurl     = self.media.parse_media_id(m_type, m_id)
+
+                if 'bandcamp' in m_type:
+                    thumbnail = self.media.parse_art(thumbnail)
+                    fanart    = self.media.parse_art(fanart)
+
+                if not thumbnail:
+                    thumbnail = 'DefaultMusicSongs.png'
+
                 if m_type in ['bandcamp_track', 'youtube']:
                     is_playable = True
                 else:
@@ -205,7 +214,8 @@ class TripleR():
 
             if m_type == 'program_broadcast_track':
                 thumbnail   = 'DefaultMusicSongs.png'
-                pathurl     = m_links.get('broadcast_track')
+                search      = m_links.get('broadcast_track')
+                pathurl     = f'{self.url}{search}'
                 is_playable = False
 
             if m_sub:
@@ -318,7 +328,6 @@ class TripleR():
                         {
                             'label': self.nextpage,
                             'path':  f'{self.url}{links["next"]}',
-                            'icon':   'DefaultMusicSearch.png'
                         }
                     )
                 if links.get('last'):
@@ -326,7 +335,6 @@ class TripleR():
                         {
                             'label':  self.lastpage,
                             'path':  f'{self.url}{links["last"]}',
-                            'icon':   'DefaultMusicVideoTitle.pngg'
                         }
                     )
 
