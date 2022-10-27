@@ -14,19 +14,20 @@ from urllib.parse import parse_qs, urlencode, unquote_plus
 
 class TripleR():
     def __init__(self):
-        self.plugin = Plugin()
-        self.url = 'plugin://plugin.audio.tripler'
-        self.addon = Addon()
-        self.dialog = xbmcgui.Dialog()
-        self._respath = os.path.join(self.addon.getAddonInfo('path'), 'resources')
-        self.icon = os.path.join(self._respath, 'icon.png')
-        self.fanart = os.path.join(self._respath, 'fanart.png')
-        self.website = TripleRWebsite(os.path.join(self._respath, 'cookies.lwp'))
+        self.plugin     = Plugin()
+        self.id         = 'plugin.audio.tripler'
+        self.url        = f'plugin://{self.id}'
+        self.addon      = Addon()
+        self.dialog     = xbmcgui.Dialog()
+        self._respath   = os.path.join(self.addon.getAddonInfo('path'), 'resources')
+        self.icon       = os.path.join(self._respath, 'icon.png')
+        self.fanart     = os.path.join(self._respath, 'fanart.png')
+        self.website    = TripleRWebsite(os.path.join(self._respath, 'cookies.lwp'))
         self._signed_in = -1
         self.supported_plugins = Media.RE_MEDIA_URLS.keys()
 
-        self.nextpage = self.plugin.get_string(30004)
-        self.lastpage = self.plugin.get_string(30005)
+        self.nextpage   = self.plugin.get_string(30004)
+        self.lastpage   = self.plugin.get_string(30005)
 
     def _notify(self, title, message):
         xbmc.log(f'{title} - {message}', xbmc.LOGDEBUG)

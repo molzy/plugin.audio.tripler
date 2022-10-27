@@ -365,6 +365,8 @@ class ExternalMedia:
     RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
     BANDCAMP_TRACK_PLUGIN_BASE_URL   = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=url'
     BANDCAMP_TRACK_PLUGIN_FORMAT     = '{}&url={}'
+    RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
+    RE_BANDCAMP_TRACK_BAND_ART       = re.compile(r'data-band="[^"]*image_id&quot;:(?P<band_art_id>\d+)}"')
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
     SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/'
@@ -429,8 +431,12 @@ class ExternalMedia:
                         if fetch_album_art:
                             if plugin == 'bandcamp':
                                 album_art  = self.bandcamp_album_art(media_id)
-                                thumbnail  = album_art['art']
-                                background = album_art['band']
+                                thumbnail  = album_art.get('art')
+                                background = album_art.get('band')
+                            elif plugin == 'bandcamp_track':
+                                album_art  = self.bandcamp_track_art(media_id)
+                                thumbnail  = album_art.get('art')
+                                background = album_art.get('band')
                             elif plugin == 'youtube_playlist':
                                 thumbnail  = self.youtube_playlist_art(media_id)
                             elif plugin == 'youtube':
@@ -457,13 +463,26 @@ class ExternalMedia:
         json_obj = get_json_obj(api_url)
         art_id   = json_obj.get('art_id')
         band_id  = json_obj.get('band', {}).get('image_id')
-        if art_id:
-            return {
-                'art':   f'https://f4.bcbits.com/img/a{art_id}_5.jpg',
-                'band':  f'https://f4.bcbits.com/img/{band_id}_20.jpg',
-            }
 
-        return None
+        result     = {}
+        if art_id:
+            result['art']  = f'https://f4.bcbits.com/img/a{art_id}_5.jpg'
+        if band_id:
+            result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
+        return result
+
+    def bandcamp_track_art(self, track_url):
+        track_page  = get_json(track_url)
+        art_match   = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
+        band_match  = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
+        result      = {}
+        if art_match:
+            art_id  = art_match.groupdict().get('art_id')
+            result['art']  = f'https://f4.bcbits.com/img/a{art_id}_5.jpg'
+        if band_match:
+            band_id = band_match.groupdict().get('band_art_id')
+            result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
+        return result
 
     def youtube_playlist_art(self, playlist_id):
         api_url = self.YOUTUBE_PLAYLIST_ART_URL.format(playlist_id)
@@ -1325,6 +1344,10 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
     def thumbnail(self):
         return self._get_media().get('thumbnail')
 
+    @property
+    def background(self):
+        return self._get_media().get('background')
+
     def attributes(self):
         attr = {
             'artist':    self.artist,
@@ -1332,6 +1355,8 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
         }
         if self.thumbnail:
             attr['thumbnail'] = self.thumbnail
+        if self.background:
+            attr['background'] = self.background
         return attr
 
     def links(self):

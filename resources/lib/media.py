@@ -10,6 +10,8 @@ class Media:
     RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
     BANDCAMP_TRACK_PLUGIN_BASE_URL   = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=url'
     BANDCAMP_TRACK_PLUGIN_FORMAT     = '{}&url={}'
+    RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
+    RE_BANDCAMP_TRACK_BAND_ART       = re.compile(r'data-band="[^"]*image_id&quot;:(?P<band_art_id>\d+)}"')
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
     SOUNDCLOUD_PLUGIN_BASE_URL       = 'plugin://plugin.audio.soundcloud/'
