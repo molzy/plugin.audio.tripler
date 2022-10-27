@@ -107,12 +107,28 @@ class UnmatchedResourcePath(BaseException):
     '''
     '''
 
+def strip_value(v):
+    if  isinstance(v, dict):
+        return strip_values(v)
+    elif isinstance(v, list):
+        return [strip_values(x) for x in v]
+    elif isinstance(v, str):
+        return v.strip()
+    else:
+        return v
+
+def strip_values(d):
+    if isinstance(d, dict):
+        return { k: strip_value(v) for k, v in d.items() }
+    else:
+        return d
+
 class Scraper:
     @classmethod
     def call(cls, resource_path):
         scraper = cls.find_by_resource_path(resource_path)
-      # sys.stderr.write(f"[32m# Using : [32;1m'{scraper}'[0m\n")
-        return scraper.generate()
+      # sys.stderr.write(f"[32m# Using : [32;1m'{scraper}'[0m on [32;1m'{resource_path}'[0m\n")
+        return strip_values(scraper.generate())
 
     @classmethod
     def url_for(cls, resource_path):
