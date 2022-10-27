@@ -48,6 +48,11 @@ class TripleR():
         if args.get('picker'):
             del args['picker']
 
+        if 'search' in segments and not args.get('q'):
+            search = self.search(tracks=('tracks' in segments))
+            if search:
+                args['q'] = search
+
         path = '/{}{}{}'.format('/'.join(segments), '?' if args else '', urlencode(args, doseq=True))
 
         if len(segments[0]) < 1:
@@ -85,6 +90,7 @@ class TripleR():
             {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
             {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
             {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
+            {'label': self.plugin.get_string(30041), 'path': f'{self.url}/search', 'icon': 'DefaultMusicSearch.png'},
         ]
         if self.login():
             emailaddress = self.addon.getSetting('emailaddress')
@@ -146,8 +152,8 @@ class TripleR():
 
         return None
 
-    def playlist_item(self, path):
-        return (self.plugin.get_string(30002), path)
+    def context_item(self, label, path):
+        return (self.plugin.get_string(label), f'Container.Update({self.url}{path})')
 
     def parse_programs(self, data, args, segments, links=None):
         items = []
@@ -167,7 +173,6 @@ class TripleR():
             textbody        = attributes.get('textbody', '')
             thumbnail       = attributes.get('thumbnail', '')
             fanart          = attributes.get('background', self.fanart)
-            icon            = thumbnail
 
             if attributes.get('subtitle'):
                 textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes['subtitle']), textbody))
@@ -175,25 +180,42 @@ class TripleR():
                 textbody    = '\n'.join((attributes['venue'], textbody))
 
             if m_type in self.supported_plugins:
+                title       = attributes.get('title', '')
                 name        = Media.RE_MEDIA_URLS[m_type].get('name')
-                title       = '{} ({})'.format(attributes.get('title', ''), name)
+                title       = f'{title} ({name})'
+                artist      = attributes.get('artist')
+                if artist:
+                    title   = f'{artist} - {title}'
                 textbody    = f'{textbody}\nPlay with {name}'
                 pathurl     = Media.parse_media_id(m_type, m_id)
-                is_playable = False
+                if len(thumbnail) < 1:
+                    thumbnail   = 'DefaultMusicSongs.png'
+                if m_type in ['bandcamp_track', 'youtube']:
+                    is_playable = True
+                else:
+                    is_playable = False
             else:
                 title       = attributes.get('title', '')
+                artist      = attributes.get('artist')
+                if artist:
+                    title   = f'{artist} - {title}'
                 pathurl     = attributes.get('url')
                 is_playable = True
+
+            if m_type == 'program_broadcast_track':
+                thumbnail   = 'DefaultMusicSongs.png'
+                pathurl     = m_links.get('broadcast_track')
+                is_playable = False
 
             if m_sub:
                 if not self.login() or not self.subscribed():
                     icon        =  'OverlayLocked.png'
-                    title       = f'Locked - {title}'
+                    title       = f'Subscribe To Listen - {title}'
                     textbody    = f'{self.plugin.get_string(30084)}\n{textbody}'
                     pathurl     = f'{self.url}{m_sub}'
                     is_playable = False
                 else:
-                    title       = f'Unlocked - {title}'
+                    title       = f'Subscribers Only - {title}'
 
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
@@ -230,6 +252,8 @@ class TripleR():
             else:
                 date = time.strftime('%d.%m.%Y', time.localtime())
 
+            icon = thumbnail
+
             item = {
                 'label':     title,
                 'label2':    aired,
@@ -256,8 +280,19 @@ class TripleR():
             if mediatype:
                 item['info']['mediatype'] = mediatype
 
+            context_menu = []
+
             if m_playlist:
-                item['context_menu'] = [(self.plugin.get_string(30002), f'Container.Update({self.url}{m_playlist})')]
+                context_menu.append(self.context_item(30101, m_playlist))
+
+            if 'broadcast_track' in m_links:
+                context_menu.append(self.context_item(30102, m_links.get('broadcast_track')))
+
+            if 'broadcast_artist' in m_links:
+                context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
+
+            if context_menu:
+                item['context_menu'] = context_menu
                 item['replace_context_menu'] = True
 
             listitem = ListItem.from_dict(**item)
@@ -293,12 +328,25 @@ class TripleR():
                             'icon':   'DefaultMusicVideoTitle.pngg'
                         }
                     )
-        
+
         if 'archives' in segments:
             if not self.login() or not self.subscribed():
                 items.insert(0, self._sub_item(self.plugin.get_string(30083)))
+        elif 'search' in segments and 'tracks' not in segments:
+            link = links.get('self').split('?page=')[0]
+            items.insert(0,
+                {
+                    'label': self.plugin.get_string(30066),
+                    'path':  f'{self.url}/tracks{link}',
+                    'icon':   'DefaultMusicSearch.png'
+                }
+            )
 
         return items
+
+    def search(self, tracks=False):
+        prompt = self.plugin.get_string(30068 if tracks else 30067)
+        return self.dialog.input(prompt, type=xbmcgui.INPUT_ALPHANUM)
 
     def sign_in(self):
         emailaddress = self.dialog.input(self.plugin.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)

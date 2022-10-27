@@ -1310,29 +1310,35 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
     def title(self):
         return self._itemobj.find(class_='audio-summary__track-title').text.strip()
 
-    @property
-    def media(self):
+    def _get_media(self):
         if not self._media:
             href = self._itemobj.find(class_='audio-summary__track-title').attrs.get('href')
             if href:
-                self._media = self.media_items([{'src': href}])[0]
+                self._media = self.media_items([{'src': href}], fetch_album_art=True)[0]
+        return self._media if self._media else {}
 
-        return self._media.get('media_id')
+    @property
+    def media(self):
+        return self._get_media().get('media_id')
+
+    @property
+    def thumbnail(self):
+        return self._get_media().get('thumbnail')
 
     def attributes(self):
-        return {
-            'artist': self.artist,
-            'title':  self.title,
+        attr = {
+            'artist':    self.artist,
+            'title':     self.title,
         }
+        if self.thumbnail:
+            attr['thumbnail'] = self.thumbnail
+        return attr
 
     def links(self):
-        if self.media:
-            return {
-                'broadcast_artist': self.broadcast_artist,
-                'broadcast_track': self.broadcast_track,
-            }
-        else:
-            return {}
+        return {
+            'broadcast_artist': self.broadcast_artist,
+            'broadcast_track': self.broadcast_track,
+        }
 
 
 class AudioItem:

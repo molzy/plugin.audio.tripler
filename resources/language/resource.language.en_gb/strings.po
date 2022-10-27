@@ -39,10 +39,6 @@ msgctxt "#30001"
 msgid "Listen Live!"
 msgstr ""
 
-msgctxt "#30002"
-msgid "View Playlist"
-msgstr ""
-
 msgctxt "#30004"
 msgid "> Next Page"
 msgstr ""
@@ -62,6 +58,8 @@ msgstr ""
 msgctxt "#30009"
 msgid "Settings"
 msgstr ""
+
+# Account
 
 msgctxt "#30010"
 msgid "Subscriber Account"
@@ -103,6 +101,8 @@ msgctxt "#30021"
 msgid "Sign out of your Triple R account"
 msgstr ""
 
+# Main Menu
+
 msgctxt "#30032"
 msgid "Browse by Program"
 msgstr ""
@@ -139,6 +139,12 @@ msgctxt "#30040"
 msgid "Subscriber Giveaways"
 msgstr ""
 
+msgctxt "#30041"
+msgid "Search"
+msgstr ""
+
+# Date Selection
+
 msgctxt "#30059"
 msgid "Tomorrow (%s)"
 msgstr ""
@@ -166,6 +172,22 @@ msgstr ""
 msgctxt "#30065"
 msgid "Select Date (%s)"
 msgstr ""
+
+# Searching
+
+msgctxt "#30066"
+msgid "Search playlists instead"
+msgstr ""
+
+msgctxt "#30067"
+msgid "Enter Search Query"
+msgstr ""
+
+msgctxt "#30068"
+msgid "Enter Playlist Search Query"
+msgstr ""
+
+# Subscription
 
 msgctxt "#30069"
 msgid "Enter Giveaway"
@@ -238,3 +260,18 @@ msgstr ""
 msgctxt "#30088"
 msgid "%s could not sign out"
 msgstr ""
+
+# Context Menus
+
+msgctxt "#30101"
+msgid "View Playlist"
+msgstr ""
+
+msgctxt "#30102"
+msgid "Search for Track"
+msgstr ""
+
+msgctxt "#30103"
+msgid "Search for Artist"
+msgstr ""
+
