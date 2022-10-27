@@ -7,6 +7,7 @@ IS_PY3 = sys.version_info[0] > 2
 if IS_PY3:
     from urllib.request import Request, urlopen
     from urllib.parse import parse_qs, urlencode
+    from urllib.error import URLError
 else:
     from urllib2 import Request, urlopen
     from urllib2 import urlencode
@@ -480,7 +481,10 @@ class ExternalMedia:
 
     def youtube_playlist_art(self, playlist_id):
         api_url = self.YOUTUBE_PLAYLIST_ART_URL.format(playlist_id)
-        return get_json_obj(api_url).get('thumbnail_url')
+        try:
+            return get_json_obj(api_url).get('thumbnail_url')
+        except URLError as e:
+            sys.stderr.write(f'Error fetching {api_url}: {e}')
 
 
 class FeaturedAlbumScraper(Scraper, ExternalMedia):
