@@ -76,8 +76,8 @@ class Resource:
 
     def to_dict(self):
         d = {
-            'id':         self.id(),
             'type':       self.type,
+            'id':         self.id(),
             'attributes': {
                 'title': self.title,
                 **self.attributes(),
@@ -123,6 +123,15 @@ def strip_values(d):
         return { k: strip_value(v) for k, v in d.items() }
     else:
         return d
+
+def remove_nulls(obj):
+    if  isinstance(obj, dict):
+        return { k: remove_nulls(v) for k, v in obj.items() if v }
+    elif isinstance(obj, list):
+        return [remove_nulls(x) for x in obj if x]
+    else:
+        return obj
+
 
 class Scraper:
     @classmethod
@@ -331,9 +340,84 @@ class AudioItemGenerator:
             'links': self.pagination()
         }
 
-class ProgramBroadcastsScraper(Scraper, AudioItemGenerator):
+class ProgramBroadcastsScraper(Scraper):
     RESOURCE_PATH_PATTERN = '/programs/{program_id}/broadcasts'
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/page'
+
+    def generate(self):
+        soup = self.soup()
+        programtitle = soup.find(class_='page-banner__heading')
+        if programtitle:
+            title = programtitle.text
+
+        thumbnail, background = None, None
+        programimage = soup.find(class_='card__background-image')
+        if programimage:
+            programimagesrc = re.search(r"https://[^']+", programimage.attrs.get('style'))
+            if programimagesrc:
+                thumbnail = programimagesrc[0]
+
+        programbg = soup.find(class_='banner__image')
+        if programbg:
+            background = programbg.attrs.get('src')
+
+        textbody = '\n'.join((
+            soup.find(class_='page-banner__summary').text,
+            soup.find(class_='page-banner__time').text
+        ))
+
+        # Aarrgh the website dragons strike again!
+        def map_path(path):
+            m = re.match('^/explore/(?P<collection>[^/]+?)/(?P<program>[^/]+?)#episode-selector', path)
+            if m:
+                d = m.groupdict()
+                if   d['collection'] == 'programs':
+                    return f"/explore/{d['collection']}/{d['program']}/episodes/page"
+                elif d['collection'] == 'podcasts':
+                    return f"/explore/{d['collection']}/{d['program']}/episodes"
+
+        collections = [
+            {
+                'type': 'collection',
+                'id': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
+                'attributes': {
+                    'title': ' - '.join((title, anchor.text)),
+                    'thumbnail':  thumbnail,
+                    'background': background,
+                    'textbody':   textbody,
+                },
+                'links': {
+                    'self': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
+                }
+            }
+            for anchor in soup.find_all('a', class_='program-nav__anchor')
+        ]
+
+        # hackety - hack - hack - hack ... just blindly turn "Broadcasts" into "Segments" while nobody is looking
+        collections[0]['id'] = re.sub('broadcasts', 'segments', collections[0]['id'])
+        collections[0]['links']['self'] = collections[0]['id']
+        collections[0]['attributes']['title'] = re.sub('Broadcasts', 'Segments', collections[0]['attributes']['title'])
+
+        broadcasts = [
+            item for item in [
+                BroadcastCollection(div).to_dict()
+                for div in self.soup().findAll(class_='card__text')
+            ]
+        ]
+
+        images = {
+            'thumbnail':  thumbnail,
+            'background': background,
+        }
+        [b['attributes'].update(images) for b in broadcasts]
+
+        collections = [item for item in (collections[::-1] + broadcasts) if item]
+
+        return {
+            'data': collections,
+            'links': self.pagination(),
+        }
+
 
 
 class ProgramPodcastsScraper(Scraper, AudioItemGenerator):
@@ -588,11 +672,25 @@ class ProgramBroadcastScraper(Scraper):
     WEBSITE_PATH_PATTERN = '/explore/programs/{program_id}/episodes/{item}'
 
     def generate(self):
+        soup = self.soup()
+        broadcast = ProgramBroadcast(
+            soup.find(class_='audio-summary')
+        ).to_dict()
+        broadcast['attributes']['textbody'] = soup.find(class_='page-banner__summary').text
+        segments = [
+            ProgramBroadcastSegment(item).to_dict()
+            for item in soup.findAll(class_='episode-detail__highlights-item')
+        ]
+        tracks = [
+            ProgramBroadcastTrack(item).to_dict()
+            for item in soup.findAll(class_='audio-summary__track clearfix')
+        ]
+        items = [
+            item
+            for item in ([broadcast] + segments + tracks) if item
+        ]
         return {
-            'data': [
-                ProgramBroadcastTrack(item).to_dict()
-                for item in self.soup().findAll(class_='audio-summary__track clearfix')
-            ],
+            'data': items
         }
 
 
@@ -730,6 +828,13 @@ class SoundscapeScraper(Scraper, ExternalMedia):
 
 
 class Program(Resource):
+    @property
+    def path(self):
+        return f"{Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])}/broadcasts?page=1"
+
+    def id(self):
+        return self.path.split("/")[2]
+
     @property
     def title(self):
         return self._itemobj.find('h1', class_='card__title' ).find('a').text
@@ -1231,7 +1336,7 @@ class BroadcastTrack(Resource):
 
     @property
     def title(self):
-        return self.track.title
+        return f'{self.track.artist} - {self.track.title} (Broadcast on {self.broadcast_date} by {self.program_title})'
 
     RE = re.compile(r'Played (?P<played_date>[^/]+) by (?P<played_by>.+)View all plays$')
     @property
@@ -1239,39 +1344,34 @@ class BroadcastTrack(Resource):
         return self.RE.match(self._itemobj.find(class_='search-result__meta-info').text)
 
     @property
-    def played_date(self):
-        return datetime.datetime.strptime(self.played['played_date'], '%A %d %b %Y').strftime('%Y-%m-%d')
+    def broadcast_date(self):
+        return time.strftime(DATE_FORMAT, time.strptime(self.played['played_date'], '%A %d %b %Y'))
 
     @property
-    def played_by(self):
+    def program_title(self):
         return self.played['played_by']
-
-    @property
-    def broadcast(self):
-        return Broadcast(
-            Scraper.resource_path_for(self._itemobj.find(class_='search-result__meta-info').find('a', recursive=False).attrs['href']),
-            self._itemobj.find(class_='search-result__track-artist').text,
-            self._itemobj.find(class_='search-result__track-title').text,
-        )
 
     @property
     def track(self):
         return Track(
             Scraper.resource_path_for(self._itemobj.find(class_='search-result__meta-links').find('a').attrs['href']),
-            self._itemobj,
-            '{} - {}'.format(self.played['played_by'], self.played['played_date']),
+            self._itemobj.find(class_='search-result__track-artist').text,
+            self._itemobj.find(class_='search-result__track-title').text,
         )
 
     def attributes(self):
         return {
-            'played_date':  self.played_date,
-            'played_by':    self.played_by,
+            'broadcast_date': self.broadcast_date,
+            'program_title':   self.program_title,
         }
 
     def relationships(self):
         return {
             'broadcast': {
                 'links': {
+                    # TODO - FIXME:
+                    # Nb. this shouldn't be `self.path` as this class is a BroadcastTrack not a Broadcast
+                    # which _also_ means that BroadcastTrack shouldn't have a `links.self`
                     'related': self.path
                 },
                 'data': {
@@ -1292,9 +1392,151 @@ class BroadcastTrack(Resource):
 
     def included(self):
         return [
-            self.broadcast.to_dict(),
             self.track.to_dict(),
         ]
+
+
+class PlayableResource(Resource):
+    @property
+    def _playable(self):
+        view_playable_div = self._itemobj.find(lambda tag:tag.name == 'div' and 'data-view-playable' in tag.attrs)
+        if view_playable_div:
+            return json.loads(view_playable_div.attrs['data-view-playable'])['items'][0]
+
+    @property
+    def _data(self):
+        return self._playable['data']
+
+    @property
+    def type(self):
+        t = self._playable['type']
+        if t == 'clip':
+            return 'segment'
+        if t == 'broadcast_episode':
+            return 'broadcast'
+        else:
+            return t
+
+    def id(self):
+        return str(self._playable['source_id'])
+
+    @property
+    def path(self):
+        return None
+
+    @property
+    def title(self):
+        return self._data['title']
+
+    @property
+    def subtitle(self):
+        return self._data['subtitle']
+
+    @property
+    def textbody(self):
+        return None
+
+    @property
+    def _itemtime(self):
+        return time.strptime(self.subtitle, '%d %B %Y')
+
+    @property
+    def date(self):
+        return time.strftime(DATE_FORMAT, self._itemtime)
+
+    @property
+    def year(self):
+        return self._itemtime[0]
+
+    @property
+    def aired(self):
+        return self.date
+
+    @property
+    def duration(self):
+        return round(self._data['duration'])
+
+    @property
+    def url(self):
+        return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data['timestamp']}"
+
+    @property
+    def thumbnail(self):
+        return self._data['image']['path']
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'subtitle':  self.subtitle,
+            'textbody':  self.textbody,
+            'date':      self.date,
+            'year':      self.year,
+            'aired':     self.aired,
+            'duration':  self.duration,
+            'url':       self.url,
+            'thumbnail': self.thumbnail,
+        }
+
+
+class ProgramBroadcast(PlayableResource):
+    '''
+      <div data-view-playable='
+        {
+          "component":"episode_player",
+          "formattedDuration":"02:00:00",
+          "shareURL":"https://www.rrr.org.au/explore/programs/the-international-pop-underground/episodes/22347-the-international-pop-underground-19-october-2022",
+          "sharedMomentBaseURL":"https://www.rrr.org.au/shared/broadcast-episode/22347",
+          "items":[
+            {
+              "type":"broadcast_episode",
+              "source_id":22347,
+              "player_item_id":269091,
+              "data":{
+                "title":"The International Pop Underground – 19 October 2022",
+                "subtitle":"19 October 2022",
+                "timestamp":"20221019200000",
+                "duration":7200,
+                "platform_id":1,
+                "image":{
+                  "title":"International Pop Underground program image"
+                  "path":"https://cdn-images-w3.rrr.org.au/81wyES6vU8Hyr8MdSUu_kY6cBGA=/300x300/https://s3.ap-southeast-2.amazonaws.com/assets-w3.rrr.org.au/assets/041/aa8/63b/041aa863b5c3655493e6771ea91c13bb55e94d24/International%20Pop%20Underground.jpg"
+                }
+              }
+            }
+          ]
+        }"
+    '''
+
+
+
+class ProgramBroadcastSegment(PlayableResource):
+    '''
+      <div data-view-playable='
+        {
+          "component": "player_buttons",
+          "size": "normal",
+          "items": [
+            {
+              "type": "clip",
+              "source_id": 3021,
+              "player_item_id": 270803,
+              "data": {
+                "title": "International Pop Underground: Guatemalan Cellist/Songwriter Mabe Fratti Seeks Transcendence",
+                "subtitle": "19 October 2022",
+                "platform_id": 1,
+                "timestamp": "20221019211747",
+                "duration": 1097,
+                "image": {
+                  "title": "Mabe Fratti",
+                  "path": "https://cdn-images-w3.rrr.org.au/1v6kamv_8_4xheocBJCa6FKZY_8=/300x300/https://s3.ap-southeast-2.amazonaws.com/assets-w3.rrr.org.au/assets/3a7/61f/143/3a761f1436b97a186be0cf578962436d9c5404a8/Mabe-Fratti.jpg"
+                }
+              }
+            }
+          ]
+        }
+      '><div class="d-flex">
+    '''
+
 
 
 class ProgramBroadcastTrack(Resource, ExternalMedia):
@@ -1368,10 +1610,43 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
         }
 
 
+class BroadcastCollection(Resource):
+    @property
+    def type(self):
+        return 'collection'
+
+    def id(self):
+        return self.path
+
+    @property
+    def title(self):
+        return self._itemobj.find(class_='card__title').text
+
+    @property
+    def thumbnail(self):
+        programimage = self._itemobj.find(class_='scalable-image__image')
+        if programimage:
+            return programimage.attrs.get('data-src')
+
+    @property
+    def textbody(self):
+        cardbody = self._itemobj.find(class_='card__meta')
+        if cardbody:
+            return cardbody.text
+
+    def attributes(self):
+        return {
+            'title':     self.title,
+            'textbody':  self.textbody,
+            'thumbnail': self.thumbnail,
+        }
+
+
+
 class AudioItem:
 
     @classmethod
-    def factory(cls, item):
+    def factory(cls, item, collection=False):
         cardbody = item.find(class_='card__body')
         if cardbody:
             textbody = cardbody.text
@@ -1392,6 +1667,8 @@ class AudioItem:
             else:
                 itemobj['subscription_required'] = False
 
+            if   collection:
+                obj = (item, itemobj, textbody)
             if   itemobj['type'] == 'clip':
                 obj = Segment(item, itemobj, textbody)
             elif itemobj['type'] == 'broadcast_episode':
@@ -1429,15 +1706,8 @@ class AudioItem:
         return self._itemobj.get('subscription_required')
 
     @property
-    def playlist(self):
-        playlist = self._item.find(lambda tag:tag.name == 'a' and 'View playlist' in tag.text)
-        if playlist:
-            return Scraper.resource_path_for(playlist.attrs.get('href', '#').split('#')[0])
-        return None
-
-    @property
-    def source_id(self):
-        return self._itemobj['source_id']
+    def id(self):
+        return str(self._itemobj['source_id'])
 
     @property
     def title(self):
@@ -1491,7 +1761,7 @@ class AudioItem:
     def to_dict(self):
         item = {
             'type':          self.type,
-            'id':            self.source_id,
+            'id':            self.id,
             'attributes': {
                 'title':         self.title,
                 'subtitle':      self.subtitle,
@@ -1509,8 +1779,6 @@ class AudioItem:
         }
         if self.subscription_required:
             item['links']['subscribe'] = '/subscribe'
-        if self.playlist:
-            item['links']['playlist'] = self.playlist
         return item
 
 

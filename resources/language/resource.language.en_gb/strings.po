@@ -298,14 +298,14 @@ msgid "%s using the context menu."
 msgstr ""
 
 msgctxt "#30101"
-msgid "View Playlist"
+msgid "View playlist"
 msgstr ""
 
 msgctxt "#30102"
-msgid "Search for this Track"
+msgid "Search for this track"
 msgstr ""
 
 msgctxt "#30103"
-msgid "Search for this Artist"
+msgid "Search for this artist"
 msgstr ""
 

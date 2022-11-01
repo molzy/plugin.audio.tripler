@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 import time, sys, os, json
-from xbmcswift2 import Plugin, ListItem, xbmcgui
+from xbmcswift2 import xbmcplugin, Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
 import xbmc
@@ -10,7 +10,7 @@ from resources.lib.scraper import Scraper
 from resources.lib.website import TripleRWebsite
 from resources.lib.media   import Media
 
-from urllib.parse import parse_qs, urlencode, unquote_plus
+from urllib.parse import parse_qs, urlencode, unquote_plus, quote_plus
 
 class TripleR():
     def __init__(self):
@@ -41,6 +41,7 @@ class TripleR():
 
     def parse(self):
         args = parse_qs(sys.argv[2][1:])
+        handle = int(sys.argv[1])
         segments = sys.argv[0].split('/')[3:]
         xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGINFO)
 
@@ -48,6 +49,11 @@ class TripleR():
             date = self.select_date(args.get('picker')[0])
             if date:
                 args['date'] = date
+
+        k_title = args.get('k_title', [None])[0]
+        if k_title:
+            xbmcplugin.setPluginCategory(handle, k_title)
+            del args['k_title']
 
         if args.get('picker'):
             del args['picker']
@@ -78,7 +84,7 @@ class TripleR():
             else:
                 self._notify(self.plugin.get_string(30073), self.plugin.get_string(30076))
         else:
-            parsed = self.parse_programs(**Scraper.call(path), args=args, segments=segments)
+            parsed = self.parse_programs(**Scraper.call(path), args=args, segments=segments, k_title=k_title)
             if parsed:
                 return parsed
 
@@ -115,6 +121,9 @@ class TripleR():
                     'thumbnail':  'DefaultUser.png',
                 }
             )
+        for item in items:
+            item['path'] = self._k_title(item['path'], item['label'])
+
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
 
@@ -142,6 +151,12 @@ class TripleR():
         }
         return item
 
+    def _k_title(self, url, title):
+        if title:
+            return url + ('?' if '?' not in url else '&') + 'k_title=' + quote_plus(title)
+        else:
+            return ''
+
     def select_date(self, self_date):
         self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
         dialog_title    = self.plugin.get_string(30065) % (self.plugin.get_string(30033))
@@ -159,7 +174,7 @@ class TripleR():
     def context_item(self, label, path):
         return (self.plugin.get_string(label), f'Container.Update({self.url}{path})')
 
-    def parse_programs(self, data, args, segments, links=None):
+    def parse_programs(self, data, args, segments, links=None, k_title=None):
         items = []
 
         for menuitem in data:
@@ -177,6 +192,7 @@ class TripleR():
             textbody        = attributes.get('textbody', '')
             thumbnail       = attributes.get('thumbnail', '')
             fanart          = attributes.get('background', self.fanart)
+            pathurl         = None
 
             if attributes.get('subtitle'):
                 textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes['subtitle']), textbody))
@@ -186,10 +202,10 @@ class TripleR():
             if m_type in self.supported_plugins:
                 title       = attributes.get('title', '')
                 name        = Media.RE_MEDIA_URLS[m_type].get('name')
-                title       = f'{title} ({name})'
                 artist      = attributes.get('artist')
                 if artist:
                     title   = f'{artist} - {title}'
+                title       = f'{title} ({name})'
                 textbody    = f'{self.plugin.get_string(30008)}\n{textbody}' % (name)
                 pathurl     = self.media.parse_media_id(m_type, m_id)
 
@@ -209,13 +225,16 @@ class TripleR():
                 artist      = attributes.get('artist')
                 if artist:
                     title   = f'{artist} - {title}'
+                if m_type == 'broadcast':
+                    title   = f'{title} (Full Broadcast)'
                 pathurl     = attributes.get('url')
                 is_playable = True
 
             if m_type == 'program_broadcast_track':
+                title   = f'{title} (Track)'
                 thumbnail   = 'DefaultMusicSongs.png'
                 search      = m_links.get('broadcast_track')
-                pathurl     = f'{self.url}{search}'
+                pathurl     = self._k_title(f'{self.url}{search}', attributes.get('title'))
                 is_playable = False
 
             if m_sub:
@@ -251,7 +270,7 @@ class TripleR():
                 mediatype   = 'song'
                 info_type   = 'video'
             else:
-                pathurl     = f'{self.url}{m_self}'
+                pathurl     = self._k_title(f'{self.url}{m_self}', attributes.get('title'))
                 is_playable = False
                 mediatype   = ''
                 info_type   = 'video'
@@ -272,7 +291,8 @@ class TripleR():
                 context_menu.append(self.context_item(30101, m_playlist))
 
             if 'broadcast_track' in m_links:
-                textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
+                if m_type != 'program_broadcast_track':
+                    textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
                 context_menu.append(self.context_item(30102, m_links.get('broadcast_track')))
 
             if 'broadcast_artist' in m_links:
@@ -326,17 +346,19 @@ class TripleR():
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
+                    k_title_new = self._k_title(links['next'], k_title)
                     items.append(
                         {
                             'label': self.nextpage,
-                            'path':  f'{self.url}{links["next"]}',
+                            'path':  f'{self.url}{k_title_new}',
                         }
                     )
                 if links.get('last'):
+                    k_title_new = self._k_title(links['last'], k_title)
                     items.append(
                         {
                             'label':  self.lastpage,
-                            'path':  f'{self.url}{links["last"]}',
+                            'path':  f'{self.url}',
                         }
                     )
 
