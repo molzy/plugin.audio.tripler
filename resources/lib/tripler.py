@@ -303,6 +303,14 @@ class TripleR():
                 context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
 
             if 'broadcast_track' in m_links:
+                bc_search = re.sub(r'tracks/search\?q=', '?mode=search&query=', m_links.get('broadcast_track'))
+                context_menu.append(self.context_item(30106, bc_search, plugin='plugin.audio.kxmxpxtx.bandcamp'))
+
+            if 'broadcast_artist' in m_links:
+                bc_search = re.sub(r'tracks/search\?q=', '?mode=search&query=', m_links.get('broadcast_artist'))
+                context_menu.append(self.context_item(30107, bc_search, plugin='plugin.audio.kxmxpxtx.bandcamp'))
+
+            if 'broadcast_track' in m_links:
                 yt_search = re.sub(r'tracks/search', 'kodion/search/query/', m_links.get('broadcast_track'))
                 context_menu.append(self.context_item(30104, yt_search, plugin='plugin.video.youtube'))
 
