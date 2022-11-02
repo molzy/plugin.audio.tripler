@@ -323,3 +323,10 @@ msgctxt "#30103"
 msgid "Search for this artist"
 msgstr ""
 
+msgctxt "#30104"
+msgid "Search YouTube for this track"
+msgstr ""
+
+msgctxt "#30105"
+msgid "Search YouTube for this artist"
+msgstr ""

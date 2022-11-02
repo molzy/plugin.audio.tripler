@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
-import time, sys, os, json
+import time, sys, os, json, re
 from xbmcswift2 import xbmcplugin, Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
@@ -172,8 +172,9 @@ class TripleR():
 
         return None
 
-    def context_item(self, label, path):
-        return (self.plugin.get_string(label), f'Container.Update({self.url}{path})')
+    def context_item(self, label, path, plugin=None):
+        plugin = plugin if plugin else self.id
+        return (self.plugin.get_string(label), f'Container.Update(plugin://{plugin}{path})')
 
     def parse_programs(self, data, args, segments, links=None, k_title=None):
         items = []
@@ -300,6 +301,14 @@ class TripleR():
 
             if 'broadcast_artist' in m_links:
                 context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
+
+            if 'broadcast_track' in m_links:
+                yt_search = re.sub(r'tracks/search', 'kodion/search/query/', m_links.get('broadcast_track'))
+                context_menu.append(self.context_item(30104, yt_search, plugin='plugin.video.youtube'))
+
+            if 'broadcast_artist' in m_links:
+                yt_search = re.sub(r'tracks/search', 'kodion/search/query/', m_links.get('broadcast_artist'))
+                context_menu.append(self.context_item(30105, yt_search, plugin='plugin.video.youtube'))
 
             item = {
                 'label':     title,
