@@ -123,6 +123,7 @@ class TripleR():
             )
         for item in items:
             item['path'] = self._k_title(item['path'], item['label'])
+            item['properties'] = {'fanart_image': self.fanart}
 
         listitems = [ListItem.from_dict(**item) for item in items]
         return listitems
