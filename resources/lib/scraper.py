@@ -777,8 +777,8 @@ class SoundscapeScraper(Scraper, ExternalMedia):
 
             attrs = {
                 'id':             ' '.join(heading.text.split('**')[0].split(' - ')),
-                'title':          heading.text.split('**')[0],
-                'artist':         heading.text.split(' - ')[0],
+                'title':          heading.text.split('**')[0].split(' - ')[-1].split(' – ')[-1],
+                'artist':         heading.text.split(' - ')[0].split(' – ')[0],
                 'featured_album': heading.text.split('**')[1] if aotw else '',
             }
             media = {
