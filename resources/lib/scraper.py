@@ -404,12 +404,11 @@ class ProgramBroadcastsScraper(Scraper):
         broadcasts = [
             item for item in [
                 BroadcastCollection(div).to_dict()
-                for div in self.soup().findAll(class_='card__text')
+                for div in self.soup().findAll(class_='card')
             ]
         ]
 
         images = {
-            'thumbnail':  thumbnail,
             'background': background,
         }
         [b['attributes'].update(images) for b in broadcasts]
@@ -1127,7 +1126,7 @@ class News(Resource):
 class Soundscape(Resource):
     @property
     def title(self):
-        return self._itemobj.find('span').text
+        return re.sub(r'(Triple R |:)', '', self._itemobj.find('span').text)
 
     @property
     def subtitle(self):
@@ -1252,6 +1251,15 @@ class ScheduleItem:
         return self._itemobj.attrs['data-timeslot-end']
 
     @property
+    def _on_air_status(self):
+        try:
+            start = time.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
+            end   = time.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
+            return start, end
+        except ValueError:
+            return None, None
+
+    @property
     def textbody(self):
         return self._itemobj.find('p').text
 
@@ -1259,6 +1267,16 @@ class ScheduleItem:
     def content(self):
         content = json.loads(self._itemobj.find(class_='hide-from-all').attrs['data-content'])
         content['type'] = 'program' if content['type'] == 'programs' else 'scheduled'
+        if not self.audio_item:
+            start, end = self._on_air_status
+            localtime  = time.localtime()
+            if start < localtime and end > localtime:
+                flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
+                if flag_label:
+                    content['name'] += f' ({flag_label.string})'
+            img = self._itemobj.find(class_='list-view__image')
+            if img:
+                content['thumbnail'] = img.attrs.get('data-src')
         return content
 
     @property
@@ -1417,6 +1435,16 @@ class PlayableResource(Resource):
             return json.loads(dataview)
 
     @property
+    def _on_air_status(self):
+        toggle = self._on_air_toggle
+        try:
+            start = time.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
+            end   = time.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
+            return start, end
+        except ValueError:
+            return None, None
+
+    @property
     def type(self):
         t = self._playable.get('type')
         if t == 'clip':
@@ -1427,26 +1455,30 @@ class PlayableResource(Resource):
             return t
 
     def id(self):
-        return str(self._playable.get('source_id'))
+        if self._playable:
+            return str(self._playable.get('source_id'))
 
     @property
     def path(self):
-        return None
+        return
 
     @property
     def title(self):
         if self._data:
             return self._data.get('title')
         else:
-            toggle   = self._on_air_toggle
-            start    = time.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
-            end      = time.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
-            if start > time.localtime():
-                return self._itemobj.find(class_=toggle.get('upcomingEl')[1:]).text
-            if start < time.localtime() and end > time.localtime():
-                return self._itemobj.find(class_=toggle.get('onAirEl')[1:]).find('span').text
-            if end < time.localtime():
-                return self._itemobj.find(class_=toggle.get('offAirEl')[1:]).text
+            start, end = self._on_air_status
+            localtime = time.localtime()
+
+            if start > localtime:
+                title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
+            if start < localtime and end > localtime:
+                onair = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
+                title = onair.find('span') if onair else None
+            if end < localtime:
+                title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
+
+            return title.text if title else None
 
     @property
     def subtitle(self):
@@ -1487,11 +1519,21 @@ class PlayableResource(Resource):
     def url(self):
         if self._data:
             return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data.get('timestamp')}"
+        else:
+            start, end = self._on_air_status
+            localtime = time.localtime()
+
+            if start < localtime and end > localtime:
+                return 'https://ondemand.rrr.org.au/stream/ws-hq.m3u'
 
     @property
     def thumbnail(self):
         if self._data:
             return self._data.get('image', {}).get('path')
+        else:
+            img = self._itemobj.find(class_='audio-summary__image')
+            if img:
+                return img.attrs.get('data-src')
 
     def attributes(self):
         return {
@@ -1653,6 +1695,12 @@ class BroadcastCollection(Resource):
 
     @property
     def thumbnail(self):
+        programimage = self._itemobj.find(class_='card__background-image')
+        if programimage:
+            programimagesrc = re.search(r"https://[^']+", programimage.attrs.get('style'))
+            if programimagesrc:
+                return programimagesrc[0]
+
         programimage = self._itemobj.find(class_='scalable-image__image')
         if programimage:
             return programimage.attrs.get('data-src')
@@ -1675,7 +1723,7 @@ class BroadcastCollection(Resource):
 class AudioItem:
 
     @classmethod
-    def factory(cls, item, collection=False):
+    def factory(cls, item):
         cardbody = item.find(class_='card__body')
         if cardbody:
             textbody = cardbody.text
@@ -1696,8 +1744,6 @@ class AudioItem:
             else:
                 itemobj['subscription_required'] = False
 
-            if   collection:
-                obj = (item, itemobj, textbody)
             if   itemobj['type'] == 'clip':
                 obj = Segment(item, itemobj, textbody)
             elif itemobj['type'] == 'broadcast_episode':
