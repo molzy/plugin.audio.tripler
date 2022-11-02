@@ -267,15 +267,16 @@ class ProgramScraper(Scraper):
         if programtitle:
             title = programtitle.text
 
-        programimage = soup.find(class_='card__background-image').attrs.get('style')
+        thumbnail, background = None, None
+        programimage = soup.find(class_='card__background-image')
         if programimage:
-            programimagesrc = re.search(r"https://[^']+", programimage)
+            programimagesrc = re.search(r"https://[^']+", programimage.attrs.get('style'))
             if programimagesrc:
                 thumbnail = programimagesrc[0]
-            else:
-                thumbnail = ''
-        else:
-            thumbnail = ''
+
+        programbg = soup.find(class_='banner__image')
+        if programbg:
+            background = programbg.attrs.get('src')
 
         textbody = '\n'.join((
             soup.find(class_='page-banner__summary').text,
@@ -298,8 +299,9 @@ class ProgramScraper(Scraper):
                 'id': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
                 'attributes': {
                     'title': ' - '.join((title, anchor.text)),
-                    'thumbnail': thumbnail,
-                    'textbody':  textbody,
+                    'thumbnail':  thumbnail,
+                    'background': background,
+                    'textbody':   textbody,
                 },
                 'links': {
                     'self': Scraper.resource_path_for(map_path(anchor.attrs['href'])),
@@ -316,6 +318,7 @@ class ProgramScraper(Scraper):
                     'attributes': {
                         'title': ' - '.join((title, 'Segments')),
                         'thumbnail': thumbnail,
+                        'background': background,
                         'textbody':  textbody,
                     },
                     'links': {
@@ -1402,14 +1405,16 @@ class PlayableResource(Resource):
         view_playable_div = self._itemobj.find(lambda tag:tag.name == 'div' and 'data-view-playable' in tag.attrs)
         if view_playable_div:
             return json.loads(view_playable_div.attrs['data-view-playable'])['items'][0]
+        else:
+            return {}
 
     @property
     def _data(self):
-        return self._playable['data']
+        return self._playable.get('data', {})
 
     @property
     def type(self):
-        t = self._playable['type']
+        t = self._playable.get('type')
         if t == 'clip':
             return 'segment'
         if t == 'broadcast_episode':
@@ -1418,7 +1423,7 @@ class PlayableResource(Resource):
             return t
 
     def id(self):
-        return str(self._playable['source_id'])
+        return str(self._playable.get('source_id'))
 
     @property
     def path(self):
@@ -1426,11 +1431,16 @@ class PlayableResource(Resource):
 
     @property
     def title(self):
-        return self._data['title']
+        if self._data:
+            return self._data.get('title')
+        else:
+            offair = self._itemobj.find(class_='audio-summary__message--off-air')
+            if offair:
+                return offair.text
 
     @property
     def subtitle(self):
-        return self._data['subtitle']
+        return self._data.get('subtitle')
 
     @property
     def textbody(self):
@@ -1438,15 +1448,21 @@ class PlayableResource(Resource):
 
     @property
     def _itemtime(self):
-        return time.strptime(self.subtitle, '%d %B %Y')
+        if self.subtitle:
+            try:
+                return time.strptime(self.subtitle, '%d %B %Y')
+            except ValueError:
+                return
 
     @property
     def date(self):
-        return time.strftime(DATE_FORMAT, self._itemtime)
+        if self._itemtime:
+            return time.strftime(DATE_FORMAT, self._itemtime)
 
     @property
     def year(self):
-        return self._itemtime[0]
+        if self._itemtime:
+            return self._itemtime[0]
 
     @property
     def aired(self):
@@ -1454,15 +1470,18 @@ class PlayableResource(Resource):
 
     @property
     def duration(self):
-        return round(self._data['duration'])
+        if self._data:
+            return round(self._data.get('duration'))
 
     @property
     def url(self):
-        return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data['timestamp']}"
+        if self._data:
+            return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data.get('timestamp')}"
 
     @property
     def thumbnail(self):
-        return self._data['image']['path']
+        if self._data:
+            return self._data.get('image', {}).get('path')
 
     def attributes(self):
         return {
