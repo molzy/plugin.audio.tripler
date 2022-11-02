@@ -120,7 +120,7 @@ def strip_value(v):
 
 def strip_values(d):
     if isinstance(d, dict):
-        return { k: strip_value(v) for k, v in d.items() }
+        return { k: remove_nulls(strip_value(v)) for k, v in d.items() }
     else:
         return d
 
@@ -1218,13 +1218,11 @@ class Event(Resource):
         metadiv = meta.findAll('div')
         if len(metadiv) > 1:
             return metadiv[1].text
-        else:
-            return ''
 
     @property
     def textbody(self):
         venue = self.venue
-        return '\n'.join((self._itemtitle, 'Date: ' + self._itemdate, 'Venue:' if venue else '', self.venue, '', self._itemtype))
+        return '\n'.join((self._itemtitle, 'Date: ' + self._itemdate, ('Venue:\n' + venue) if venue else '', '', self._itemtype))
 
     def attributes(self):
         return {
