@@ -1411,6 +1411,12 @@ class PlayableResource(Resource):
         return self._playable.get('data', {})
 
     @property
+    def _on_air_toggle(self):
+        dataview = self._itemobj.attrs.get('data-view-on-air-toggle')
+        if dataview:
+            return json.loads(dataview)
+
+    @property
     def type(self):
         t = self._playable.get('type')
         if t == 'clip':
@@ -1432,9 +1438,15 @@ class PlayableResource(Resource):
         if self._data:
             return self._data.get('title')
         else:
-            offair = self._itemobj.find(class_='audio-summary__message--off-air')
-            if offair:
-                return offair.text
+            toggle   = self._on_air_toggle
+            start    = time.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
+            end      = time.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
+            if start > time.localtime():
+                return self._itemobj.find(class_=toggle.get('upcomingEl')[1:]).text
+            if start < time.localtime() and end > time.localtime():
+                return self._itemobj.find(class_=toggle.get('onAirEl')[1:]).find('span').text
+            if end < time.localtime():
+                return self._itemobj.find(class_=toggle.get('offAirEl')[1:]).text
 
     @property
     def subtitle(self):
