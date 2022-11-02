@@ -169,6 +169,20 @@ msgctxt "#30041"
 msgid "Search"
 msgstr ""
 
+# Broadcasts
+
+msgctxt "#30050"
+msgid "Full Broadcast"
+msgstr ""
+
+msgctxt "#30051"
+msgid "Segment"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Track"
+msgstr ""
+
 # Date Selection
 
 msgctxt "#30059"

@@ -227,12 +227,14 @@ class TripleR():
                 if artist:
                     title   = f'{artist} - {title}'
                 if m_type == 'broadcast':
-                    title   = f'{title} (Full Broadcast)'
+                    title   = f'{title} ({self.plugin.get_string(30050)})'
+                if m_type == 'segment':
+                    title   = f'{title} ({self.plugin.get_string(30051)})'
                 pathurl     = attributes.get('url')
                 is_playable = True
 
             if m_type == 'program_broadcast_track':
-                title   = f'{title} (Track)'
+                title   = f'{title} ({self.plugin.get_string(30052)})'
                 thumbnail   = 'DefaultMusicSongs.png'
                 search      = m_links.get('broadcast_track')
                 pathurl     = self._k_title(f'{self.url}{search}', attributes.get('title'))
