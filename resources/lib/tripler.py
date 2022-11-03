@@ -63,6 +63,10 @@ class TripleR():
             if search:
                 args['q'] = search
 
+        if 'ext_search' in segments:
+            if self.ext_search(args):
+                return
+
         path = '/{}{}{}'.format('/'.join(segments), '?' if args else '', urlencode(args, doseq=True))
 
         if len(segments[0]) < 1:
@@ -208,7 +212,7 @@ class TripleR():
                 if artist:
                     title   = f'{artist} - {title}'
                 title       = f'{title} ({name})'
-                textbody    = f'{self.plugin.get_string(30008)}\n{textbody}' % (name)
+                textbody    = f'{self.plugin.get_string(30008)}\n' % (name) + textbody
                 pathurl     = self.media.parse_media_id(m_type, m_id)
 
                 if 'bandcamp' in m_type:
@@ -237,8 +241,8 @@ class TripleR():
             if m_type == 'program_broadcast_track':
                 title   = f'{title} ({self.plugin.get_string(30052)})'
                 thumbnail   = 'DefaultMusicSongs.png'
-                search      = m_links.get('broadcast_track')
-                pathurl     = self._k_title(f'{self.url}{search}', attributes.get('title'))
+                ext_search  = m_links.get('broadcast_track').replace('search', 'ext_search')
+                pathurl     = self._k_title(f'{self.url}{ext_search}', attributes.get('title'))
                 is_playable = False
 
             if m_sub:
@@ -291,32 +295,18 @@ class TripleR():
             context_menu = []
 
             if m_playlist:
-                textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30101))
+                textbody += f'\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30101))
                 context_menu.append(self.context_item(30101, m_playlist))
 
             if 'broadcast_track' in m_links:
                 if m_type != 'program_broadcast_track':
-                    textbody = f'{textbody}\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
-                context_menu.append(self.context_item(30102, m_links.get('broadcast_track')))
+                    textbody += f'\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
+                ext_search = m_links.get('broadcast_track').replace('search', 'ext_search')
+                context_menu.append(self.context_item(30102, ext_search))
 
             if 'broadcast_artist' in m_links:
-                context_menu.append(self.context_item(30103, m_links.get('broadcast_artist')))
-
-            if 'broadcast_track' in m_links:
-                bc_search = re.sub(r'tracks/search\?q=', '?mode=search&query=', m_links.get('broadcast_track'))
-                context_menu.append(self.context_item(30106, bc_search, plugin='plugin.audio.kxmxpxtx.bandcamp'))
-
-            if 'broadcast_artist' in m_links:
-                bc_search = re.sub(r'tracks/search\?q=', '?mode=search&query=', m_links.get('broadcast_artist'))
-                context_menu.append(self.context_item(30107, bc_search, plugin='plugin.audio.kxmxpxtx.bandcamp'))
-
-            if 'broadcast_track' in m_links:
-                yt_search = re.sub(r'tracks/search', 'kodion/search/query/', m_links.get('broadcast_track'))
-                context_menu.append(self.context_item(30104, yt_search, plugin='plugin.video.youtube'))
-
-            if 'broadcast_artist' in m_links:
-                yt_search = re.sub(r'tracks/search', 'kodion/search/query/', m_links.get('broadcast_artist'))
-                context_menu.append(self.context_item(30105, yt_search, plugin='plugin.video.youtube'))
+                ext_search = m_links.get('broadcast_artist').replace('search', 'ext_search')
+                context_menu.append(self.context_item(30103, ext_search))
 
             item = {
                 'label':     title,
@@ -400,6 +390,19 @@ class TripleR():
     def search(self, tracks=False):
         prompt = self.plugin.get_string(30068 if tracks else 30067)
         return self.dialog.input(prompt, type=xbmcgui.INPUT_ALPHANUM)
+
+    def ext_search(self, args):
+        query = urlencode(args, doseq=True)
+        query_sub = urlencode({'query': args.get('q', [''])}, doseq=True)
+        options = [
+            (self.plugin.get_string(30105), f'plugin://{self.id}/tracks/search?{query}'),
+            (self.plugin.get_string(30106), f'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&{query_sub}'),
+            (self.plugin.get_string(30107), f'plugin://plugin.video.youtube/kodion/search/query/?{query}'),
+        ]
+        provider = self.dialog.select(self.plugin.get_string(30104) % (args.get('q', [''])[0]), [k for k,v in options])
+        if provider >= 0:
+            path = options[provider][1]
+            xbmc.executebuiltin(f'Container.Update({path})')
 
     def sign_in(self):
         emailaddress = self.dialog.input(self.plugin.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)

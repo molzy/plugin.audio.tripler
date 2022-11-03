@@ -316,25 +316,25 @@ msgid "View playlist"
 msgstr ""
 
 msgctxt "#30102"
-msgid "Look up track on Triple R"
+msgid "Search for this track"
 msgstr ""
 
 msgctxt "#30103"
-msgid "Look up artist on Triple R"
+msgid "Search for this artist"
 msgstr ""
 
 msgctxt "#30104"
-msgid "Look up track on YouTube"
+msgid "Search for '%s'"
 msgstr ""
 
 msgctxt "#30105"
-msgid "Look up artist on YouTube"
+msgid "Search on Triple R"
 msgstr ""
 
 msgctxt "#30106"
-msgid "Look up track on Bandcamp"
+msgid "Search on Bandcamp"
 msgstr ""
 
 msgctxt "#30107"
-msgid "Look up artist on Bandcamp"
+msgid "Search on YouTube"
 msgstr ""
