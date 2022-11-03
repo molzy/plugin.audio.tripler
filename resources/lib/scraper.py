@@ -397,9 +397,9 @@ class ProgramBroadcastsScraper(Scraper):
         ]
 
         # hackety - hack - hack - hack ... just blindly turn "Broadcasts" into "Segments" while nobody is looking
-        collections[0]['id'] = re.sub('broadcasts', 'segments', collections[0]['id'])
+        collections[0]['id'] = collections[0]['id'].replace('broadcasts', 'segments')
         collections[0]['links']['self'] = collections[0]['id']
-        collections[0]['attributes']['title'] = re.sub('Broadcasts', 'Segments', collections[0]['attributes']['title'])
+        collections[0]['attributes']['title'] = collections[0]['attributes']['title'].replace('Broadcasts', 'Segments')
 
         broadcasts = [
             item for item in [
@@ -806,7 +806,7 @@ class SoundscapeScraper(Scraper, ExternalMedia):
                 attributes['background'] = media.get('background')
 
             if media.get('plugin'):
-                # dataitem['id']   = re.sub(' ', '-', media.get('attrs').get('id')).lower()
+                # dataitem['id']   = media.get('attrs').get('id', '').replace(' ', '-').lower()
                 dataitem['id'] = media.get('media_id')
                 dataitem['type'] = media.get('plugin')
                 attributes['title'] = media.get('attrs').get('title')
@@ -969,7 +969,7 @@ class EventScraper(Scraper):
 
         flag_label = item.find(class_='flag-label')
         if flag_label:
-            event_type = re.sub(' ', '-', flag_label.text).lower()
+            event_type = flag_label.text.replace(' ', '-').lower()
         else:
             # event_type = None
             event_type = 'event'
@@ -1126,7 +1126,7 @@ class News(Resource):
 class Soundscape(Resource):
     @property
     def title(self):
-        return re.sub(r'(Triple R |:)', '', self._itemobj.find('span').text)
+        return self._itemobj.find('span').text.replace(':', '').replace('Triple R ', '')
 
     @property
     def subtitle(self):
@@ -1172,7 +1172,7 @@ class Event(Resource):
 
     @property
     def type(self):
-        return re.sub(' ', '-', self._itemtype).lower()
+        return self._itemtype.replace(' ', '-').lower()
 
     @property
     def thumbnail(self):
