@@ -614,7 +614,7 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
                 'type': album_type,
                 'id': album_id,
                 'attributes': {
-                    'title':     ' - '.join((album_artist, album_title)),
+                    'title':     album_title,
                     'artist':    album_artist,
                     'textbody':  album_copy,
                 },
