@@ -88,7 +88,8 @@ class TripleR():
             else:
                 self._notify(self.plugin.get_string(30073), self.plugin.get_string(30076))
         else:
-            parsed = self.parse_programs(**Scraper.call(path), args=args, segments=segments, k_title=k_title)
+            scraped = Scraper.call(path)
+            parsed = self.parse_programs(**scraped, args=args, segments=segments, k_title=k_title)
             if parsed:
                 return parsed
 
@@ -200,8 +201,8 @@ class TripleR():
             fanart          = attributes.get('background', self.fanart)
             pathurl         = None
 
-            if attributes.get('subtitle'):
-                textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes['subtitle']), textbody))
+            if attributes.get('subtitle') and not ('soundscapes' in segments and len(segments) > 1):
+                textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes.get('subtitle')), textbody))
             if attributes.get('venue'):
                 textbody    = '\n'.join((attributes['venue'], textbody))
 
