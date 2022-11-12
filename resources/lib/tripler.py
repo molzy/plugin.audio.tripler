@@ -230,13 +230,18 @@ class TripleR():
             else:
                 title       = attributes.get('title', '')
                 artist      = attributes.get('artist')
+                pathurl     = attributes.get('url')
                 if artist:
                     title   = f'{artist} - {title}'
-                if m_type == 'broadcast':
+                if m_type == 'broadcast' and pathurl:
                     title   = f'{title} ({self.plugin.get_string(30050)})'
+                if m_type == 'broadcast_index' and 'schedule' in segments:
+                    title   = f'{title} ({self.plugin.get_string(30049)})'
                 if m_type == 'segment':
                     title   = f'{title} ({self.plugin.get_string(30051)})'
-                pathurl     = attributes.get('url')
+                on_air = attributes.get('on_air')
+                if on_air:
+                    title   = f'{title} ({on_air})'
                 is_playable = True
 
             if m_type == 'program_broadcast_track':

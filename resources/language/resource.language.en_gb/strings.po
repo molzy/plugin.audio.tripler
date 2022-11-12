@@ -171,6 +171,10 @@ msgstr ""
 
 # Broadcasts
 
+msgctxt "#30049"
+msgid "Broadcast"
+msgstr ""
+
 msgctxt "#30050"
 msgid "Full Broadcast"
 msgstr ""

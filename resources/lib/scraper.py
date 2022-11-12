@@ -675,22 +675,32 @@ class ProgramBroadcastScraper(Scraper):
 
     def generate(self):
         soup = self.soup()
+        programbg = soup.find(class_='banner__image')
+        programbg = programbg.attrs.get('src') if programbg else None
+
         broadcast = ProgramBroadcast(
             soup.find(class_='audio-summary')
         ).to_dict()
         broadcast['attributes']['textbody'] = soup.find(class_='page-banner__summary').text
+
         segments = [
             ProgramBroadcastSegment(item).to_dict()
             for item in soup.findAll(class_='episode-detail__highlights-item')
         ]
+
         tracks = [
             ProgramBroadcastTrack(item).to_dict()
             for item in soup.findAll(class_='audio-summary__track clearfix')
         ]
-        items = [
-            item
-            for item in ([broadcast] + segments + tracks) if item
-        ]
+
+        items = []
+        for item in ([broadcast] + segments + tracks):
+            if not item:
+                continue
+            if programbg and not item.get('attributes', {}).get('background'):
+                item['attributes']['background'] = programbg
+            items.append(item)
+
         return {
             'data': items
         }
@@ -1240,7 +1250,12 @@ class ScheduleItem:
 
     @property
     def path(self):
-        return Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])
+        path = Scraper.resource_path_for(self._itemobj.find('a').attrs['href'])
+        segments = path.split('?')[0].split('/')
+        if 'programs' in segments and 'broadcasts' not in segments:
+            path += '/broadcasts?page=1'
+
+        return path
 
     @property
     def start(self):
@@ -1266,17 +1281,29 @@ class ScheduleItem:
     @property
     def content(self):
         content = json.loads(self._itemobj.find(class_='hide-from-all').attrs['data-content'])
-        content['type'] = 'program' if content['type'] == 'programs' else 'scheduled'
-        if not self.audio_item:
-            start, end = self._on_air_status
-            localtime  = time.localtime()
-            if start < localtime and end > localtime:
-                flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
-                if flag_label:
-                    content['name'] += f' ({flag_label.string})'
-            img = self._itemobj.find(class_='list-view__image')
-            if img:
-                content['thumbnail'] = img.attrs.get('data-src')
+        content['title'] = content.pop('name')
+
+        if self.audio_item:
+            content['type'] = 'broadcast_index'
+            content['title'] = self.audio_item.get('attributes').get('title')
+        else:
+            if '/broadcasts?page=1' not in self.path:
+                content['type'] = 'broadcast_index'
+            elif content['type'] == 'programs':
+                content['type'] = 'program'
+            else:
+                content['type'] = 'scheduled'
+
+        start, end = self._on_air_status
+        localtime  = time.localtime()
+        if start < localtime and end > localtime:
+            flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
+            if flag_label:
+                content['on_air'] = flag_label.string
+        img = self._itemobj.find(class_='list-view__image')
+        if img:
+            content['thumbnail'] = img.attrs.get('data-src')
+
         return content
 
     @property
@@ -1290,17 +1317,10 @@ class ScheduleItem:
             'end': self.end,
             'textbody': self.textbody,
         }
-        ai = self.audio_item
-        itemid = ai.pop('id', attrs.pop('id'))
-        itemtype = ai.pop('type', attrs.pop('type'))
-        itemtitle = ai.get('attributes', {}).pop('title', attrs.pop('name'))
-        attrs = {
-            **ai.pop('attributes', {}),
-            **attrs,
-            'title': itemtitle,
-        }
+        itemid = attrs.pop('id')
+        itemtype = attrs.pop('type')
 
-        item = {
+        return {
             'type': itemtype,
             'id': itemid,
             'attributes': attrs,
@@ -1308,11 +1328,6 @@ class ScheduleItem:
                 'self': self.path
             }
         }
-        playlist = ai.get('links', {}).get('playlist')
-        if playlist:
-            item['links']['playlist'] = playlist
-
-        return item
 
 
 class ItemType:
@@ -1617,7 +1632,7 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
         if self.media:
             return self.media
         else:
-            return f'{self.artist}.{self.title}'
+            return re.sub(r'[\[\]\{\}\(\)\.\/\\,\:\;]', '', f'{self.artist}-{self.title}'.lower().replace(' ', '-'))
 
     @property
     def type(self):
@@ -1684,7 +1699,7 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
 class BroadcastCollection(Resource):
     @property
     def type(self):
-        return 'collection'
+        return 'broadcast_index'
 
     def id(self):
         return self.path
