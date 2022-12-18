@@ -404,6 +404,7 @@ class TripleR():
             )
 
         xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED, labelMask='%L', label2Mask='%D')
+        xbmcplugin.setContent(self.handle, '')
 
         return items
 
