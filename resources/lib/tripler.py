@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlencode, unquote_plus, quote_plus
 class TripleR():
     def __init__(self):
         self.plugin     = Plugin()
+        self.handle     = int(sys.argv[1])
         self.id         = 'plugin.audio.tripler'
         self.url        = f'plugin://{self.id}'
         self.addon      = Addon()
@@ -41,7 +42,6 @@ class TripleR():
 
     def parse(self):
         args = parse_qs(sys.argv[2][1:])
-        handle = int(sys.argv[1])
         segments = sys.argv[0].split('/')[3:]
         xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGINFO)
 
@@ -52,7 +52,7 @@ class TripleR():
 
         k_title = args.get('k_title', [None])[0]
         if k_title:
-            xbmcplugin.setPluginCategory(handle, k_title)
+            xbmcplugin.setPluginCategory(self.handle, k_title)
             del args['k_title']
 
         if args.get('picker'):
@@ -131,6 +131,8 @@ class TripleR():
             item['properties'] = {'fanart_image': self.fanart}
 
         listitems = [ListItem.from_dict(**item) for item in items]
+
+        xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
         return listitems
 
     def livestream_item(self):
@@ -251,6 +253,8 @@ class TripleR():
                 pathurl     = self._k_title(f'{self.url}{ext_search}', attributes.get('title'))
                 is_playable = False
 
+            icon = thumbnail
+
             if m_sub:
                 if not self.login() or not self.subscribed():
                     icon        =  'OverlayLocked.png'
@@ -260,7 +264,6 @@ class TripleR():
                     is_playable = False
                 else:
                     title       = f'{self.plugin.get_string(30084)} - {title}'
-
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
                 title      += ' ({})'.format(self.plugin.get_string(30069))
@@ -296,7 +299,6 @@ class TripleR():
             else:
                 date = time.strftime('%d.%m.%Y', time.localtime())
 
-            icon = thumbnail
 
             context_menu = []
 
@@ -326,7 +328,7 @@ class TripleR():
                     'year':      year,
                     'premiered': aired,
                     'aired':     aired,
-                    'duration':  attributes.get('duration', ''),
+                    'duration':  attributes.get('duration', '0'),
                 },
                 'properties': {
                     'StationName':  self.plugin.get_string(30000),
@@ -400,6 +402,8 @@ class TripleR():
                     'icon':   'DefaultMusicSearch.png'
                 }
             )
+
+        xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED, labelMask='%L', label2Mask='%D')
 
         return items
 
