@@ -161,7 +161,7 @@ class TripleR():
         if title:
             return url + ('?' if '?' not in url else '&') + 'k_title=' + quote_plus(title)
         else:
-            return ''
+            return url
 
     def select_date(self, self_date):
         self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
@@ -349,10 +349,20 @@ class TripleR():
 
         if 'schedule' in segments:
             self_date = links.get('self', '?date=').split('?date=')[-1]
+            next_date = links.get('next', '?date=').split('?date=')[-1]
+            if links.get('next'):
+                k_title_new = self._k_title(links['next'], k_title)
+                items.insert(0,
+                    {
+                        'label': self.plugin.get_string(30061) % (next_date),
+                        'path':  f'{self.url}{k_title_new}',
+                    }
+                )
+            k_title_new = self._k_title(f'/schedule?picker={self_date}', k_title)
             items.insert(0,
                 {
                     'label': self.plugin.get_string(30065) % (self_date),
-                    'path':  f'{self.url}/schedule?picker={self_date}',
+                    'path':  f'{self.url}{k_title_new}',
                     'icon':   'DefaultPVRGuide.png'
                 }
             )

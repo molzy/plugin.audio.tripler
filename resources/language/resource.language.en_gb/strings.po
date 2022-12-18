@@ -190,7 +190,7 @@ msgstr ""
 # Date Selection
 
 msgctxt "#30059"
-msgid "Tomorrow (%s)"
+msgid "Next Day (%s)"
 msgstr ""
 
 msgctxt "#30060"
@@ -198,7 +198,7 @@ msgid "Today (%s)"
 msgstr ""
 
 msgctxt "#30061"
-msgid "Yesterday (%s)"
+msgid "Previous Day (%s)"
 msgstr ""
 
 msgctxt "#30062"
