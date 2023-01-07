@@ -339,6 +339,7 @@ class TripleR():
                 'icon':        icon,
                 'is_playable': is_playable
             }
+
             if mediatype:
                 item['info']['mediatype'] = mediatype
 
@@ -404,7 +405,23 @@ class TripleR():
             )
 
         xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED, labelMask='%L', label2Mask='%D')
-        xbmcplugin.setContent(self.handle, '')
+        if len(segments) > 3 and 'broadcasts' in segments[2]:
+            # broadcast playlist
+            xbmcplugin.setContent(self.handle, 'episodes')
+        elif 'segments' in segments or 'archives' in segments:
+            # any segment or archive listing
+            xbmcplugin.setContent(self.handle, 'episodes')
+        elif len(segments) == 3 and 'broadcasts' in segments:
+            # index of broadcasts
+            xbmcplugin.setContent(self.handle, 'songs')
+        elif len(segments) == 2 and 'soundscapes' in segments:
+            # soundscape
+            xbmcplugin.setContent(self.handle, 'songs')
+        elif len(segments) == 2 and 'featured_albums' in segments:
+            # featured albums
+            xbmcplugin.setContent(self.handle, 'songs')
+        else:
+            xbmcplugin.setContent(self.handle, '')
 
         return items
 

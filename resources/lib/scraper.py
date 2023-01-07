@@ -465,6 +465,7 @@ class ExternalMedia:
 
     RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
     RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
+    RE_BANDCAMP_TRACK_DURATION       = re.compile(r'duration&quot;:(?P<duration>[\d\.]+),')
     RE_BANDCAMP_TRACK_BAND_ART       = re.compile(r'data-band="[^"]*image_id&quot;:(?P<band_art_id>\d+)}"')
 
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
@@ -504,7 +505,7 @@ class ExternalMedia:
         for iframe in iframes:
             if not iframe.get('src'):
                 continue
-            thumbnail, media_id, background = None, None, None
+            thumbnail, media_id, background, duration = None, None, None, 0
             for plugin, info in self.RE_MEDIA_URLS.items():
                 plugin_match = re.match(info.get('re'), iframe.get('src'))
                 if plugin_match:
@@ -515,10 +516,12 @@ class ExternalMedia:
                                 album_art  = self.bandcamp_album_art(media_id)
                                 thumbnail  = album_art.get('art')
                                 background = album_art.get('band')
+                                duration   = album_art.get('duration')
                             elif plugin == 'bandcamp_track':
                                 album_art  = self.bandcamp_track_art(media_id)
                                 thumbnail  = album_art.get('art')
                                 background = album_art.get('band')
+                                duration   = album_art.get('duration')
                             elif plugin == 'youtube_playlist':
                                 thumbnail  = self.youtube_playlist_art(media_id)
                             elif plugin == 'youtube':
@@ -534,6 +537,7 @@ class ExternalMedia:
                     'plugin':     plugin if plugin_match else None,
                     'thumbnail':  thumbnail,
                     'background': background,
+                    'duration':   duration,
                 }
             )
 
@@ -545,24 +549,33 @@ class ExternalMedia:
         art_id   = json_obj.get('art_id')
         band_id  = json_obj.get('band', {}).get('image_id')
 
-        result     = {}
+        duration = 0
+        for track in json_obj.get('tracks', []):
+            duration += int(float(track.get('duration', '0')))
+
+        result = {}
         if art_id:
             result['art']  = f'https://f4.bcbits.com/img/a{art_id}_5.jpg'
         if band_id:
             result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
+        if duration:
+            result['duration'] = duration
         return result
 
     def bandcamp_track_art(self, track_url):
-        track_page  = get_json(track_url)
-        art_match   = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
-        band_match  = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
-        result      = {}
+        track_page      = get_json(track_url)
+        art_match       = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
+        band_match      = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
+        duration_match  = re.search(self.RE_BANDCAMP_TRACK_DURATION, track_page)
+        result = {}
         if art_match:
             art_id  = art_match.groupdict().get('art_id')
             result['art']  = f'https://f4.bcbits.com/img/a{art_id}_5.jpg'
         if band_match:
             band_id = band_match.groupdict().get('band_art_id')
             result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
+        if duration_match:
+            result['duration'] = int(float(duration_match.groupdict().get('duration', '0')))
         return result
 
     def youtube_playlist_art(self, playlist_id):
@@ -604,10 +617,12 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
             album_type = album_urls[0].get('plugin')
             album_id   = album_urls[0].get('media_id')
             background = album_urls[0].get('background')
+            duration   = album_urls[0].get('duration')
         else:
             album_type = 'featured_album'
             album_id   = self.resource_path.split('/')[-1]
             background = None
+            duration   = None
 
         data = [
             {
@@ -617,6 +632,7 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
                     'title':     album_title,
                     'artist':    album_artist,
                     'textbody':  album_copy,
+                    'duration':  duration,
                 },
                 'links': {
                     'self': self.path,
@@ -814,6 +830,9 @@ class SoundscapeScraper(Scraper, ExternalMedia):
 
             if media.get('background'):
                 attributes['background'] = media.get('background')
+
+            if media.get('duration'):
+                attributes['duration'] = media.get('duration')
 
             if media.get('plugin'):
                 # dataitem['id']   = media.get('attrs').get('id', '').replace(' ', '-').lower()
@@ -1279,6 +1298,11 @@ class ScheduleItem:
         return self._itemobj.find('p').text
 
     @property
+    def duration(self):
+        if self.audio_item:
+            return self.audio_item.get('attributes').get('duration')
+
+    @property
     def content(self):
         content = json.loads(self._itemobj.find(class_='hide-from-all').attrs['data-content'])
         content['title'] = content.pop('name')
@@ -1316,6 +1340,7 @@ class ScheduleItem:
             'start': self.start,
             'end': self.end,
             'textbody': self.textbody,
+            'duration': self.duration,
         }
         itemid = attrs.pop('id')
         itemtype = attrs.pop('type')
@@ -1678,6 +1703,10 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
     def background(self):
         return self._get_media().get('background')
 
+    @property
+    def duration(self):
+        return self._get_media().get('duration')
+
     def attributes(self):
         attr = {
             'artist':    self.artist,
@@ -1687,6 +1716,8 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
             attr['thumbnail'] = self.thumbnail
         if self.background:
             attr['background'] = self.background
+        if self.duration:
+            attr['duration'] = self.duration
         return attr
 
     def links(self):
@@ -1703,6 +1734,23 @@ class BroadcastCollection(Resource):
 
     def id(self):
         return self.path
+
+    @property
+    def _playable(self):
+        view_playable_div = self._itemobj.find(lambda tag:tag.name == 'div' and 'data-view-playable' in tag.attrs)
+        if view_playable_div:
+            return json.loads(view_playable_div.attrs['data-view-playable'])['items'][0]
+        else:
+            return {}
+
+    @property
+    def _data(self):
+        return self._playable.get('data', {})
+
+    @property
+    def duration(self):
+        if self._data:
+            return round(self._data.get('duration'))
 
     @property
     def title(self):
@@ -1731,6 +1779,7 @@ class BroadcastCollection(Resource):
             'title':     self.title,
             'textbody':  self.textbody,
             'thumbnail': self.thumbnail,
+            'duration':  self.duration,
         }
 
 
