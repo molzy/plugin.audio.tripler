@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import time, sys, os, json, re
+import pytz
 from xbmcswift2 import xbmcplugin, Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
@@ -18,6 +19,7 @@ class TripleR():
         self.handle     = int(sys.argv[1])
         self.id         = 'plugin.audio.tripler'
         self.url        = f'plugin://{self.id}'
+        self.tz         = pytz.timezone('Australia/Melbourne')
         self.addon      = Addon()
         self.dialog     = xbmcgui.Dialog()
         self._respath   = os.path.join(self.addon.getAddonInfo('path'), 'resources')
@@ -172,8 +174,8 @@ class TripleR():
 
         if picked_date_str:
             date_str    = '-'.join([i.zfill(2) for i in picked_date_str.replace(' ', '').split('/')[::-1]])
-            current     = datetime(*(time.strptime(date_str, '%Y-%m-%d')[0:6]), tzinfo=timezone.utc)
-            daydelta    = datetime.now(timezone.utc) - current + timedelta(hours=10 + 6)
+            current     = datetime(*(time.strptime(date_str, '%Y-%m-%d')[0:6]), tzinfo=self.tz)
+            daydelta    = datetime.now(self.tz) - current - timedelta(hours=6)
             if daydelta.days != 0:
                 return date_str
 

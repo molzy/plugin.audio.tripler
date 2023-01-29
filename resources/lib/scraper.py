@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-import bs4, time, json, re, sys, datetime
+import bs4, time, json, re, sys
+from datetime import datetime
+import pytz
 # from marshmallow_jsonapi import Schema, fields
 
 
@@ -14,6 +16,7 @@ else:
     from urlparse import parse_qs
 
 
+TZ_MELBOURNE = pytz.timezone('Australia/Melbourne')
 DATE_FORMAT = '%Y-%m-%d'
 
 URL_BASE = 'https://www.rrr.org.au'
@@ -21,6 +24,7 @@ URL_BASE = 'https://www.rrr.org.au'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 
 stderr = False
+ignore_on_air = False
 
 
 def get(resource_path):
@@ -1219,28 +1223,6 @@ class Event(Resource):
             return meta.text if meta else ''
 
     @property
-    def _itemtime(self):
-        itemdate = self._itemdate
-        currentyear = time.strftime('%Y', time.localtime())
-        if not re.match(r'\d', itemdate.split(' ')[-1][0]):
-            itemdate = ' '.join((itemdate, currentyear))
-        try:
-            return time.strptime(itemdate, '%A, %d %B %Y')
-        except:
-            try:
-                itemdate = itemdate.split(' – ')[-1]
-                return time.strptime(itemdate, '%d %B %Y')
-            except ValueError as e:
-                return None
-
-    @property
-    def date(self):
-        if self._itemtime:
-            return time.strftime(DATE_FORMAT, self._itemtime)
-        else:
-            return None
-
-    @property
     def venue(self):
         meta = self._itemobj.find('span', class_='card__meta')
         metadiv = meta.findAll('div')
@@ -1256,7 +1238,6 @@ class Event(Resource):
         return {
             'title':         self.title,
             'thumbnail':     self.thumbnail,
-            'date':          self.date,
             'venue':         self.venue,
             'textbody':      self.textbody,
         }
@@ -1287,8 +1268,8 @@ class ScheduleItem:
     @property
     def _on_air_status(self):
         try:
-            start = time.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
-            end   = time.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
+            start = datetime.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
+            end   = datetime.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
             return start, end
         except ValueError:
             return None, None
@@ -1319,11 +1300,12 @@ class ScheduleItem:
                 content['type'] = 'scheduled'
 
         start, end = self._on_air_status
-        localtime  = time.localtime()
-        if start < localtime and end > localtime:
-            flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
-            if flag_label:
-                content['on_air'] = flag_label.string
+        if not ignore_on_air:
+            localtime = datetime.now(TZ_MELBOURNE)
+            if start < localtime and end > localtime:
+                flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
+                if flag_label:
+                    content['on_air'] = flag_label.string
         img = self._itemobj.find(class_='list-view__image')
         if img:
             content['thumbnail'] = img.attrs.get('data-src')
@@ -1478,8 +1460,8 @@ class PlayableResource(Resource):
     def _on_air_status(self):
         toggle = self._on_air_toggle
         try:
-            start = time.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
-            end   = time.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
+            start = datetime.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
+            end   = datetime.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
             return start, end
         except ValueError:
             return None, None
@@ -1508,7 +1490,7 @@ class PlayableResource(Resource):
             return self._data.get('title')
         else:
             start, end = self._on_air_status
-            localtime = time.localtime()
+            localtime = datetime.now(TZ_MELBOURNE)
 
             if start > localtime:
                 title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
@@ -1561,7 +1543,7 @@ class PlayableResource(Resource):
             return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data.get('timestamp')}"
         else:
             start, end = self._on_air_status
-            localtime = time.localtime()
+            localtime = datetime.now(TZ_MELBOURNE)
 
             if start < localtime and end > localtime:
                 return 'https://ondemand.rrr.org.au/stream/ws-hq.m3u'
