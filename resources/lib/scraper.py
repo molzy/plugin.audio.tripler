@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import bs4, time, json, re, sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import pytz
 # from marshmallow_jsonapi import Schema, fields
@@ -33,7 +34,7 @@ def get(resource_path):
 def urlopen_ua(url):
     if stderr:
         sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
-    return urlopen(Request(url, headers={'User-Agent': USER_AGENT}))
+    return urlopen(Request(url, headers={'User-Agent': USER_AGENT}), timeout=5)
 
 def get_json(url):
     return urlopen_ua(url).read().decode()
@@ -475,10 +476,15 @@ class ExternalMedia:
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
 
     RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
+    RE_YOUTUBE_VIDEO_DURATION        = re.compile(r'itemprop="duration" content="PT(?P<hours>[\d]+H)?(?P<minutes>[\d]+M)?(?P<seconds>[\d]+S)?"')
+    YOUTUBE_VIDEO_DURATION_URL       = 'https://www.youtube.com/watch?v={}'
     YOUTUBE_VIDEO_ART_URL_FORMAT     = 'https://i.ytimg.com/vi/{}/hqdefault.jpg'
 
     RE_YOUTUBE_PLAYLIST_ID           = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)\/.+\?.*list=(?P<media_id>[\w\-]+)')
-    YOUTUBE_PLAYLIST_ART_URL         = 'https://youtube.com/oembed?url=https%3A//www.youtube.com/playlist%3Flist%3D{}&format=json'
+    YOUTUBE_PLAYLIST_ART_URL         = 'https://www.youtube.com/playlist?list={}'
+    RE_YOUTUBE_PLAYLIST_ART          = re.compile(r'og:image" content="(?P<art_url>[^"]+)"><meta property="og:image:width" content="640"')
+    RE_YOUTUBE_PLAYLIST_ART_LQ       = re.compile(r'og:image" content="(?P<art_url>[^?]+)[^"]+"')
+    RE_YOUTUBE_PLAYLIST_DURATION     = re.compile(r'"lengthText":[^}]+}},"simpleText":"(?P<duration>[^"]+)"}')
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
 
@@ -509,43 +515,46 @@ class ExternalMedia:
         for iframe in iframes:
             if not iframe.get('src'):
                 continue
-            thumbnail, media_id, background, duration = None, None, None, 0
+            media_id = None
             for plugin, info in self.RE_MEDIA_URLS.items():
                 plugin_match = re.match(info.get('re'), iframe.get('src'))
                 if plugin_match:
                     media_id = plugin_match.groupdict().get('media_id')
                     if media_id:
-                        if fetch_album_art:
-                            if plugin == 'bandcamp':
-                                album_art  = self.bandcamp_album_art(media_id)
-                                thumbnail  = album_art.get('art')
-                                background = album_art.get('band')
-                                duration   = album_art.get('duration')
-                            elif plugin == 'bandcamp_track':
-                                album_art  = self.bandcamp_track_art(media_id)
-                                thumbnail  = album_art.get('art')
-                                background = album_art.get('band')
-                                duration   = album_art.get('duration')
-                            elif plugin == 'youtube_playlist':
-                                thumbnail  = self.youtube_playlist_art(media_id)
-                            elif plugin == 'youtube':
-                                thumbnail  = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
-
                         break
 
-            matches.append(
-                {
-                    'media_id':   media_id,
-                    'src':        iframe.get('src'),
-                    'attrs':      iframe.get('attrs'),
-                    'plugin':     plugin if plugin_match else None,
-                    'thumbnail':  thumbnail,
-                    'background': background,
-                    'duration':   duration,
-                }
-            )
+            matches.append({
+                'media_id':   media_id,
+                'src':        iframe.get('src'),
+                'attrs':      iframe.get('attrs'),
+                'plugin':     plugin if plugin_match else None,
+            })
+
+        if fetch_album_art:
+            executor = ThreadPoolExecutor(max_workers=3)
+            art_exec = [executor.submit(self.get_album_art, match=match) for match in matches]
+            matches = [match.result() for match in art_exec]
 
         return matches
+
+    def get_album_art(self, match={}):
+        result = match
+        media_id, plugin = match['media_id'], match['plugin']
+        album_art = {}
+        if plugin == 'bandcamp':
+            album_art = self.bandcamp_album_art(media_id)
+        elif plugin == 'bandcamp_track':
+            album_art = self.bandcamp_track_art(media_id)
+        elif plugin == 'youtube_playlist':
+            album_art = self.youtube_playlist_art(media_id)
+        elif plugin == 'youtube':
+            album_art['art']      = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
+            # album_art['duration'] = self.youtube_video_duration(media_id)
+
+        result['thumbnail']  = album_art.get('art')
+        result['background'] = album_art.get('band')
+        result['duration']   = album_art.get('duration')
+        return result
 
     def bandcamp_album_art(self, album_id):
         api_url  = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
@@ -582,12 +591,46 @@ class ExternalMedia:
             result['duration'] = int(float(duration_match.groupdict().get('duration', '0')))
         return result
 
+    def youtube_video_duration(self, video_id):
+        video_url = self.YOUTUBE_VIDEO_DURATION_URL.format(video_id)
+        try:
+            video_page  = get_json(video_url)
+        except URLError as e:
+            sys.stderr.write(f'Error fetching {video_url}: {e}')
+
+        duration_match  = re.search(self.RE_YOUTUBE_VIDEO_DURATION, video_page)
+        result = 0
+        if duration_match:
+            gd = duration_match.groupdict()
+            if gd['hours']:
+                result += int(gd['hours'][:-1]) * 3600
+            if gd['minutes']:
+                result += int(gd['minutes'][:-1]) * 60
+            if gd['seconds']:
+                result += int(gd['seconds'][:-1])
+
+        return result
+
     def youtube_playlist_art(self, playlist_id):
         api_url = self.YOUTUBE_PLAYLIST_ART_URL.format(playlist_id)
         try:
-            return get_json_obj(api_url).get('thumbnail_url')
+            playlist_page = get_json(api_url)
         except URLError as e:
             sys.stderr.write(f'Error fetching {api_url}: {e}')
+
+        art_match       = re.search(self.RE_YOUTUBE_PLAYLIST_ART, playlist_page)
+        duration_match  = re.findall(self.RE_YOUTUBE_PLAYLIST_DURATION, playlist_page)
+
+        result = {}
+        if art_match:
+            result['art'] = art_match.groupdict().get('art_url').replace('&amp;', '&') + '&ext=.jpg'
+        else:
+            art_match = re.search(self.RE_YOUTUBE_PLAYLIST_ART_LQ, playlist_page)
+            result['art'] = art_match.groupdict().get('art_url')
+        if duration_match:
+            durations = [int(x.split(':')[0]) * 60 + int(x.split(':')[1]) for x in duration_match]
+            result['duration'] = sum(durations)
+        return result
 
 
 class FeaturedAlbumScraper(Scraper, ExternalMedia):
