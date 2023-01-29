@@ -470,8 +470,8 @@ class TripleR():
                 self._notify(self.plugin.get_string(30077) % (emailaddress), self.plugin.get_string(30078))
             if not self.addon.getSettingBool('authenticated'):
                 self.addon.setSetting('subscribed-check', '0')
-                self.subscribed()
                 self.addon.setSettingBool('authenticated', True)
+                self.subscribed()
 
             if emailSetting == '':
                 self.addon.setSetting('emailaddress', emailaddress)
@@ -496,6 +496,7 @@ class TripleR():
         if self.website.logout():
             self.addon.setSettingBool('authenticated', False)
             self.addon.setSetting('subscribed-check', '0')
+            self.addon.setSettingInt('subscribed', 0)
             self._signed_in = -1
             if emailaddress:
                 self._notify(self.plugin.get_string(30079) % (emailaddress), self.plugin.get_string(30078))
