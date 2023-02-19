@@ -839,7 +839,7 @@ class SoundscapeScraper(Scraper, ExternalMedia):
 
         iframes = []
         section = pagesoup.find('section', class_='copy')
-        for heading in section.findAll(['h2', 'p'], recursive=False):
+        for heading in section.findAll(['h1', 'h2', 'h3', 'h4', 'p'], recursive=False):
             iframe = heading.find_next_sibling()
             while iframe != None and iframe.find('iframe') == None:
                 iframe = iframe.find_next_sibling()
@@ -1302,20 +1302,22 @@ class ScheduleItem:
 
     @property
     def start(self):
-        return self._itemobj.attrs['data-timeslot-start']
+        return self._itemobj.attrs.get('data-timeslot-start')
 
     @property
     def end(self):
-        return self._itemobj.attrs['data-timeslot-end']
+        return self._itemobj.attrs.get('data-timeslot-end')
 
     @property
     def _on_air_status(self):
-        try:
-            start = datetime.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
-            end   = datetime.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
-            return start, end
-        except ValueError:
-            return None, None
+        if self.start and self.end:
+            try:
+                start = datetime.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
+                end   = datetime.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
+                return start, end
+            except (ValueError, TypeError) as e:
+                pass
+        return None, None
 
     @property
     def textbody(self):
@@ -1343,7 +1345,7 @@ class ScheduleItem:
                 content['type'] = 'scheduled'
 
         start, end = self._on_air_status
-        if not ignore_on_air:
+        if not ignore_on_air and start and end:
             localtime = datetime.now(TZ_MELBOURNE)
             if start < localtime and end > localtime:
                 flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
@@ -1502,12 +1504,14 @@ class PlayableResource(Resource):
     @property
     def _on_air_status(self):
         toggle = self._on_air_toggle
-        try:
-            start = datetime.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
-            end   = datetime.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
-            return start, end
-        except ValueError:
-            return None, None
+        if toggle:
+            try:
+                start = datetime.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
+                end   = datetime.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
+                return start, end
+            except (ValueError, TypeError) as e:
+                pass
+        return None, None
 
     @property
     def type(self):
@@ -1535,13 +1539,14 @@ class PlayableResource(Resource):
             start, end = self._on_air_status
             localtime = datetime.now(TZ_MELBOURNE)
 
-            if start > localtime:
-                title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
-            if start < localtime and end > localtime:
-                onair = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
-                title = onair.find('span') if onair else None
-            if end < localtime:
-                title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
+            if start and end:
+                if start > localtime:
+                    title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
+                if start < localtime and end > localtime:
+                    onair = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
+                    title = onair.find('span') if onair else None
+                if end < localtime:
+                    title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
 
             return title.text if title else None
 
