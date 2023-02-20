@@ -476,6 +476,7 @@ class ExternalMedia:
     RE_SOUNDCLOUD_PLAYLIST_ID        = re.compile(r'.+soundcloud\.com/playlists/(?P<media_id>[^&]+)')
 
     RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
+    RE_YOUTUBE_VIDEO_ART_ID          = re.compile(r'^https:\/\/i\.ytimg\.com\/vi\/(?P<media_id>[\w\-]+)\/hqdefault\.jpg$')
     RE_YOUTUBE_VIDEO_DURATION        = re.compile(r'itemprop="duration" content="PT(?P<hours>[\d]+H)?(?P<minutes>[\d]+M)?(?P<seconds>[\d]+S)?"')
     YOUTUBE_VIDEO_DURATION_URL       = 'https://www.youtube.com/watch?v={}'
     YOUTUBE_VIDEO_ART_URL_FORMAT     = 'https://i.ytimg.com/vi/{}/hqdefault.jpg'
@@ -500,6 +501,9 @@ class ExternalMedia:
         },
         'youtube': {
             're':     RE_YOUTUBE_VIDEO_ID,
+        },
+        'youtube_art': {
+            're':     RE_YOUTUBE_VIDEO_ART_ID,
         },
         'youtube_playlist': {
             're':     RE_YOUTUBE_PLAYLIST_ID,
@@ -547,8 +551,9 @@ class ExternalMedia:
             album_art = self.bandcamp_track_art(media_id)
         elif plugin == 'youtube_playlist':
             album_art = self.youtube_playlist_art(media_id)
-        elif plugin == 'youtube':
-            album_art['art']      = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
+        elif plugin == 'youtube' or plugin == 'youtube_art':
+            result['plugin'] = 'youtube'
+            album_art['art'] = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
             # album_art['duration'] = self.youtube_video_duration(media_id)
 
         result['thumbnail']  = album_art.get('art')
@@ -1121,12 +1126,66 @@ class VideoScraper(Scraper):
         return {'data': []}
 
 
-class VideosScraper(Scraper):
+class VideosScraper(Scraper, ExternalMedia):
     RESOURCE_PATH_PATTERN = '/videos'
     WEBSITE_PATH_PATTERN = '/explore/videos'
 
     def generate(self):
-        return {'data': []}
+        pagesoup = self.soup()
+
+        images = []
+        for card in pagesoup.findAll(class_='card'):
+            img = card.find('img', class_='scalable-image__image')
+            carddate = card.find('span', class_='card__meta')
+            cardurl = card.find('a', class_='card__anchor')
+            #time.strptime(carddate.text, '%d %B %Y')
+
+            attrs = {
+                'id':             cardurl.attrs.get('href', '/').split('/')[-1],
+                'title':          img.attrs.get('alt'),
+                'date':           carddate.text,
+            }
+            media = {
+                'src': img.attrs.get('data-src'),
+                'attrs': attrs,
+            }
+            images.append(media)
+
+        media_items = self.media_items(images, fetch_album_art=True)
+
+        data = []
+        for media in media_items:
+            dataitem = {}
+            attributes = {
+                'subtitle':   media.get('attrs').get('date'),
+                'artist':     media.get('attrs').get('artist'),
+                'thumbnail':  media.get('thumbnail'),
+            }
+
+            if media.get('background'):
+                attributes['background'] = media.get('background')
+
+            if media.get('duration'):
+                attributes['duration'] = media.get('duration')
+
+            if media.get('plugin'):
+                dataitem['id'] = media.get('media_id')
+                dataitem['type'] = media.get('plugin')
+                attributes['title'] = media.get('attrs').get('title')
+            else:
+                dataitem['id']    = ''
+                attributes['title'] = media.get('attrs').get('title')
+
+            attributes['textbody'] = media.get('attrs').get('title').strip()
+
+            dataitem['attributes'] = attributes
+
+            data.append(dataitem)
+
+        return {
+            'data': data,
+            'links': self.pagination(),
+        }
 
 
 

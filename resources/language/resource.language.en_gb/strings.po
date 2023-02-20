@@ -169,6 +169,10 @@ msgctxt "#30041"
 msgid "Search"
 msgstr ""
 
+msgctxt "#30042"
+msgid "Videos"
+msgstr ""
+
 # Broadcasts
 
 msgctxt "#30049"

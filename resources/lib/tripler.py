@@ -105,6 +105,7 @@ class TripleR():
             {'label': self.plugin.get_string(30036), 'path': f'{self.url}/archives', 'icon': 'DefaultPlaylist.png'},
             {'label': self.plugin.get_string(30037), 'path': f'{self.url}/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
             {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
+            {'label': self.plugin.get_string(30042), 'path': f'{self.url}/videos', 'icon': 'DefaultMusicVideos.png'},
             {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
             {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
             {'label': self.plugin.get_string(30041), 'path': f'{self.url}/search', 'icon': 'DefaultMusicSearch.png'},
