@@ -2,9 +2,9 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time, sys, os, json, re
 import pytz
-from xbmcswift2 import xbmcplugin, Plugin, ListItem, xbmcgui
 from xbmcaddon import Addon
 import xbmcgui
+import xbmcplugin
 import xbmc
 
 from resources.lib.scraper import Scraper
@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlencode, unquote_plus, quote_plus
 
 class TripleR():
     def __init__(self):
-        self.plugin     = Plugin()
+        self.matrix     = '19.' in xbmc.getInfoLabel('System.BuildVersion')
         self.handle     = int(sys.argv[1])
         self.id         = 'plugin.audio.tripler'
         self.url        = f'plugin://{self.id}'
@@ -32,15 +32,15 @@ class TripleR():
         self.quality    = int(quality) if quality else 1
         self.media      = Media(self.quality)
 
-        self.nextpage   = self.plugin.get_string(30004)
-        self.lastpage   = self.plugin.get_string(30005)
+        self.nextpage   = self.get_string(30004)
+        self.lastpage   = self.get_string(30005)
+
+    def get_string(self, string_id):
+        return self.addon.getLocalizedString(string_id)
 
     def _notify(self, title, message):
         xbmc.log(f'{title} - {message}', xbmc.LOGDEBUG)
         self.dialog.notification(title, message, icon=self.icon)
-
-    def run(self):
-        self.plugin.run()
 
     def parse(self):
         args = parse_qs(sys.argv[2][1:])
@@ -74,7 +74,7 @@ class TripleR():
         if len(segments[0]) < 1:
             return self.main_menu()
         elif 'subscribe' in segments:
-            self._notify(self.plugin.get_string(30084), self.plugin.get_string(30083))
+            self._notify(self.get_string(30084), self.get_string(30083))
         elif 'settings' in segments:
             self.login()
             Addon().openSettings()
@@ -88,7 +88,7 @@ class TripleR():
             if self.addon.getSettingBool('authenticated'):
                 self.subscriber_giveaway(path=path)
             else:
-                self._notify(self.plugin.get_string(30073), self.plugin.get_string(30076))
+                self._notify(self.get_string(30073), self.get_string(30076))
         else:
             scraped = Scraper.call(path)
             parsed = self.parse_programs(**scraped, args=args, segments=segments, k_title=k_title)
@@ -98,17 +98,17 @@ class TripleR():
     def main_menu(self):
         items = [
             self.livestream_item(),
-            {'label': self.plugin.get_string(30032), 'path': f'{self.url}/programs', 'icon': 'DefaultPartyMode.png'},
-            {'label': self.plugin.get_string(30033), 'path': f'{self.url}/schedule', 'icon': 'DefaultYear.png'},
-            # {'label': self.plugin.get_string(30034), 'path': f'{self.url}/broadcasts', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.plugin.get_string(30035), 'path': f'{self.url}/segments', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.plugin.get_string(30036), 'path': f'{self.url}/archives', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.plugin.get_string(30037), 'path': f'{self.url}/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
-            {'label': self.plugin.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
-            {'label': self.plugin.get_string(30042), 'path': f'{self.url}/videos', 'icon': 'DefaultMusicVideos.png'},
-            {'label': self.plugin.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
-            {'label': self.plugin.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
-            {'label': self.plugin.get_string(30041), 'path': f'{self.url}/search', 'icon': 'DefaultMusicSearch.png'},
+            {'label': self.get_string(30032), 'path': f'{self.url}/programs', 'icon': 'DefaultPartyMode.png'},
+            {'label': self.get_string(30033), 'path': f'{self.url}/schedule', 'icon': 'DefaultYear.png'},
+            # {'label': self.get_string(30034), 'path': f'{self.url}/broadcasts', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30035), 'path': f'{self.url}/segments', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30036), 'path': f'{self.url}/archives', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30037), 'path': f'{self.url}/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
+            {'label': self.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
+            {'label': self.get_string(30042), 'path': f'{self.url}/videos', 'icon': 'DefaultMusicVideos.png'},
+            {'label': self.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
+            {'label': self.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
+            {'label': self.get_string(30041), 'path': f'{self.url}/search', 'icon': 'DefaultMusicSearch.png'},
         ]
         if self.login():
             emailaddress = self.addon.getSetting('emailaddress')
@@ -116,51 +116,56 @@ class TripleR():
             name = fullname if fullname else emailaddress
             items.append(
                 {
-                    'label':     f'{self.plugin.get_string(30014)} ({name})',
+                    'label':     f'{self.get_string(30014)} ({name})',
                     'path':      f'{self.url}/sign-out',
-                    'thumbnail':  'DefaultUser.png',
+                    'icon':  'DefaultUser.png',
                 }
             )
         else:
             items.append(
                 {
-                    'label':      self.plugin.get_string(30013),
+                    'label':      self.get_string(30013),
                     'path':      f'{self.url}/sign-in',
-                    'thumbnail':  'DefaultUser.png',
+                    'icon':  'DefaultUser.png',
                 }
             )
+
+        listitems = []
+
         for item in items:
-            item['path'] = self._k_title(item['path'], item['label'])
-            item['properties'] = {'fanart_image': self.fanart}
+            path = self._k_title(item['path'], item['label'])
+            li = xbmcgui.ListItem(item['label'], '', path, True)
+            li.setArt(
+                {
+                    'icon':   item['icon'],
+                    'fanart': self.fanart,
+                }
+            )
+            if 'properties' in item:
+                li.setProperties(item['properties'])
+            listitems.append((path, li, item.get('properties') == None))
 
-        listitems = [ListItem.from_dict(**item) for item in items]
-
+        xbmcplugin.addDirectoryItems(self.handle, listitems, len(listitems))
         xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
-        return listitems
+        xbmcplugin.endOfDirectory(self.handle)
 
     def livestream_item(self):
         item = {
-            'label': self.plugin.get_string(30001),
-            'path': "https://ondemand.rrr.org.au/stream/ws-hq.m3u",
-            'thumbnail': self.icon,
+            'label': self.get_string(30001),
+            'path': 'https://ondemand.rrr.org.au/stream/ws-hq.m3u',
+            'icon': self.icon,
             'properties': {
-                'StationName': self.plugin.get_string(30000),
-                'fanart_image': self.fanart
+                'StationName': self.get_string(30000),
+                'IsPlayable': 'true'
             },
-            'info': {
-                'mediatype': 'music'
-            },
-            'is_playable': True
         }
         return item
 
     def _sub_item(self, text):
-        item = {
-            'label': text,
-            'path': f'{self.url}/settings',
-            'thumbnail': os.path.join(self._respath, 'qr-subscribe.png'),
-        }
-        return item
+        path = f'{self.url}/settings'
+        li = xbmcgui.ListItem(text, '', path, True)
+        li.setArt({'thumbnail': os.path.join(self._respath, 'qr-subscribe.png')})
+        return (path, li, True)
 
     def _k_title(self, url, title):
         if title:
@@ -170,7 +175,7 @@ class TripleR():
 
     def select_date(self, self_date):
         self_date_str   = '/'.join([i for i in self_date.split('-')[::-1]])
-        dialog_title    = self.plugin.get_string(30065) % (self.plugin.get_string(30033))
+        dialog_title    = self.get_string(30065) % (self.get_string(30033))
         picked_date_str = self.dialog.input(dialog_title, defaultt=str(self_date_str), type=xbmcgui.INPUT_DATE)
 
         if picked_date_str:
@@ -184,7 +189,7 @@ class TripleR():
 
     def context_item(self, label, path, plugin=None):
         plugin = plugin if plugin else self.id
-        return (self.plugin.get_string(label), f'Container.Update(plugin://{plugin}{path})')
+        return (self.get_string(label), f'Container.Update(plugin://{plugin}{path})')
 
     def parse_programs(self, data, args, segments, links=None, k_title=None):
         items = []
@@ -207,7 +212,8 @@ class TripleR():
             pathurl         = None
 
             if attributes.get('subtitle') and not ('soundscapes' in segments and len(segments) > 1):
-                textbody    = '\n'.join((self.plugin.get_string(30007) % (attributes.get('subtitle')), textbody))
+                textbody    = '\n'.join((self.get_string(30007) % (attributes.get('subtitle')), textbody))
+
             if attributes.get('venue'):
                 textbody    = '\n'.join((attributes['venue'], textbody))
 
@@ -218,7 +224,7 @@ class TripleR():
                 if artist:
                     title   = f'{artist} - {title}'
                 title       = f'{title} ({name})'
-                textbody    = f'{self.plugin.get_string(30008)}\n' % (name) + textbody
+                textbody    = f'{self.get_string(30008)}\n' % (name) + textbody
                 pathurl     = self.media.parse_media_id(m_type, m_id)
 
                 if 'bandcamp' in m_type:
@@ -239,18 +245,18 @@ class TripleR():
                 if artist:
                     title   = f'{artist} - {title}'
                 if m_type == 'broadcast' and pathurl:
-                    title   = f'{title} ({self.plugin.get_string(30050)})'
+                    title   = f'{title} ({self.get_string(30050)})'
                 if m_type == 'broadcast_index' and 'schedule' in segments:
-                    title   = f'{title} ({self.plugin.get_string(30049)})'
+                    title   = f'{title} ({self.get_string(30049)})'
                 if m_type == 'segment':
-                    title   = f'{title} ({self.plugin.get_string(30051)})'
+                    title   = f'{title} ({self.get_string(30051)})'
                 on_air = attributes.get('on_air')
                 if on_air:
                     title   = f'{title} ({on_air})'
                 is_playable = True
 
             if m_type == 'program_broadcast_track':
-                title   = f'{title} ({self.plugin.get_string(30052)})'
+                title   = f'{title} ({self.get_string(30052)})'
                 thumbnail   = 'DefaultMusicSongs.png'
                 ext_search  = m_links.get('broadcast_track').replace('search', 'ext_search')
                 pathurl     = self._k_title(f'{self.url}{ext_search}', attributes.get('title'))
@@ -261,16 +267,16 @@ class TripleR():
             if m_sub:
                 if not self.login() or not self.subscribed():
                     icon        =  'OverlayLocked.png'
-                    title       = f'{self.plugin.get_string(30081)} - {title}'
-                    textbody    = f'{self.plugin.get_string(30081)}\n{textbody}'
+                    title       = f'{self.get_string(30081)} - {title}'
+                    textbody    = f'{self.get_string(30081)}\n{textbody}'
                     pathurl     = f'{self.url}{m_sub}'
                     is_playable = False
                 else:
-                    title       = f'{self.plugin.get_string(30084)} - {title}'
+                    title       = f'{self.get_string(30084)} - {title}'
 
             if m_type == 'giveaway' and 'entries' in m_self.split('/'):
-                title      += ' ({})'.format(self.plugin.get_string(30069))
-                textbody    = '\n'.join((self.plugin.get_string(30070), textbody))
+                title      += ' ({})'.format(self.get_string(30069))
+                textbody    = '\n'.join((self.get_string(30070), textbody))
 
             if attributes.get('start') and attributes.get('end'):
                 datestart   = datetime.fromisoformat(attributes['start'])
@@ -280,9 +286,8 @@ class TripleR():
                 textbody    = f'{start} - {end}\n{textbody}'
                 title       = ' - '.join((start, end, title))
 
-
             if attributes.get('aired'):
-                aired       = self.plugin.get_string(30006) % (attributes['aired'])
+                aired       = self.get_string(30006) % (attributes['aired'])
             else:
                 aired       = attributes.get('date', '')
 
@@ -300,18 +305,29 @@ class TripleR():
                 date = time.strftime('%d.%m.%Y', time.strptime(date, '%Y-%m-%d'))
                 year = date[0]
             else:
+                # prevents log entries regarding empty date string
                 date = time.strftime('%d.%m.%Y', time.localtime())
 
+
+            li = xbmcgui.ListItem(title, aired, pathurl, True)
+            li.setArt(
+                {
+                    'icon':      icon,
+                    'thumbnail': thumbnail,
+                    'fanart':    fanart,
+                }
+            )
+            li.setProperties({'StationName': self.get_string(30000)})
 
             context_menu = []
 
             if m_playlist:
-                textbody += f'\n\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30101))
+                textbody += f'\n\n{self.get_string(30100)}' % (self.get_string(30101))
                 context_menu.append(self.context_item(30101, m_playlist))
 
             if 'broadcast_track' in m_links:
                 if m_type != 'program_broadcast_track':
-                    textbody += f'\n{self.plugin.get_string(30100)}' % (self.plugin.get_string(30102))
+                    textbody += f'\n{self.get_string(30100)}' % (self.get_string(30102))
                 ext_search = m_links.get('broadcast_track').replace('search', 'ext_search')
                 context_menu.append(self.context_item(30102, ext_search))
 
@@ -319,93 +335,87 @@ class TripleR():
                 ext_search = m_links.get('broadcast_artist').replace('search', 'ext_search')
                 context_menu.append(self.context_item(30103, ext_search))
 
-            item = {
-                'label':     title,
-                'label2':    aired,
-                'info_type': info_type,
-                'info': {
-                    'count':     m_id,
+            if context_menu:
+                li.addContextMenuItems(context_menu)
+
+            if not self.matrix:
+                vi = li.getVideoInfoTag()
+                # vi.setDbId((abs(hash(m_id)) % 2147083647) + 400000)
+                vi.setTitle(title)
+                vi.setPlot(textbody)
+                vi.setDateAdded(date)
+                if year.isdecimal():
+                    vi.setYear(int(year))
+                vi.setFirstAired(aired)
+                vi.setPremiered(aired)
+                if attributes.get('duration', 0) > 0:
+                    vi.setDuration(attributes.get('duration'))
+                if mediatype:
+                    vi.setMediaType(mediatype)
+            else: # Matrix v19.0
+                vi = {
                     'title':     title,
                     'plot':      textbody,
                     'date':      date,
                     'year':      year,
                     'premiered': aired,
                     'aired':     aired,
-                    'duration':  attributes.get('duration', '0'),
-                },
-                'properties': {
-                    'StationName':  self.plugin.get_string(30000),
-                    'fanart_image': fanart
-                },
-                'path':        pathurl,
-                'thumbnail':   thumbnail,
-                'icon':        icon,
-                'is_playable': is_playable
-            }
+                }
 
-            if mediatype:
-                item['info']['mediatype'] = mediatype
+                if attributes.get('duration', 0) > 0:
+                    vi['duration'] = attributes.get('duration')
+                if mediatype:
+                    vi['mediatype'] = mediatype
 
-            if context_menu:
-                item['context_menu'] = context_menu
-                item['replace_context_menu'] = True
+                li.setInfo('video', vi)
 
-            listitem = ListItem.from_dict(**item)
-            items.append(listitem)
+            items.append((pathurl, li, not is_playable))
+
 
         if 'schedule' in segments:
             self_date = links.get('self', '?date=').split('?date=')[-1]
             next_date = links.get('next', '?date=').split('?date=')[-1]
+
             if links.get('next'):
                 k_title_new = self._k_title(links['next'], k_title)
-                items.insert(0,
-                    {
-                        'label': self.plugin.get_string(30061) % (next_date),
-                        'path':  f'{self.url}{k_title_new}',
-                    }
-                )
+                path = f'{self.url}{k_title_new}'
+                li = xbmcgui.ListItem(self.get_string(30061) % (next_date), '', path, True)
+                items.insert(0, (path, li, True))
+
             k_title_new = self._k_title(f'/schedule?picker={self_date}', k_title)
-            items.insert(0,
-                {
-                    'label': self.plugin.get_string(30065) % (self_date),
-                    'path':  f'{self.url}{k_title_new}',
-                    'icon':   'DefaultPVRGuide.png'
-                }
-            )
+            path = f'{self.url}{k_title_new}'
+            li = xbmcgui.ListItem(self.get_string(30065) % (self_date), '', path, True)
+            li.setArt({'icon': 'DefaultPVRGuide.png'})
+            items.insert(0, (path, li, True))
+
         elif 'giveaways' in segments:
             if not self.login() or not self.subscribed():
-                items.insert(0, self._sub_item(self.plugin.get_string(30082)))
+                items.insert(0, self._sub_item(self.get_string(30082)))
+
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
                     k_title_new = self._k_title(links['next'], k_title)
-                    items.append(
-                        {
-                            'label': self.nextpage,
-                            'path':  f'{self.url}{k_title_new}',
-                        }
-                    )
+                    path = f'{self.url}{k_title_new}'
+                    li = xbmcgui.ListItem(self.nextpage, '', path, True)
+                    items.append((path, li, True))
                 if links.get('last'):
                     k_title_new = self._k_title(links['last'], k_title)
-                    items.append(
-                        {
-                            'label':  self.lastpage,
-                            'path':  f'{self.url}',
-                        }
-                    )
+                    path = f'{self.url}{k_title_new}'
+                    li = xbmcgui.ListItem(self.lastpage, '', path, True)
+                    items.append((path, li, True))
+
 
         if 'archives' in segments:
             if not self.login() or not self.subscribed():
-                items.insert(0, self._sub_item(self.plugin.get_string(30083)))
+                items.insert(0, self._sub_item(self.get_string(30083)))
+
         elif 'search' in segments and 'tracks' not in segments:
             link = links.get('self').split('?page=')[0]
-            items.insert(0,
-                {
-                    'label': self.plugin.get_string(30066),
-                    'path':  f'{self.url}/tracks{link}',
-                    'icon':   'DefaultMusicSearch.png'
-                }
-            )
+            path = f'{self.url}/tracks{link}'
+            li = xbmcgui.ListItem(self.get_string(30066), '', path, True)
+            li.setArt({'icon': 'DefaultMusicSearch.png'})
+            items.insert(0, (path, li, True))
 
         xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED, labelMask='%L', label2Mask='%D')
         if len(segments) > 3 and 'broadcasts' in segments[2]:
@@ -426,30 +436,31 @@ class TripleR():
         else:
             xbmcplugin.setContent(self.handle, '')
 
-        return items
+        xbmcplugin.addDirectoryItems(self.handle, items, len(items))
+        xbmcplugin.endOfDirectory(self.handle)
 
     def search(self, tracks=False):
-        prompt = self.plugin.get_string(30068 if tracks else 30067)
+        prompt = self.get_string(30068 if tracks else 30067)
         return self.dialog.input(prompt, type=xbmcgui.INPUT_ALPHANUM)
 
     def ext_search(self, args):
         query = urlencode(args, doseq=True)
         query_sub = urlencode({'query': args.get('q', [''])}, doseq=True)
         options = [
-            (self.plugin.get_string(30105), f'plugin://{self.id}/tracks/search?{query}'),
-            (self.plugin.get_string(30106), f'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&{query_sub}'),
-            (self.plugin.get_string(30107), f'plugin://plugin.video.youtube/kodion/search/query/?{query}'),
+            (self.get_string(30105), f'plugin://{self.id}/tracks/search?{query}'),
+            (self.get_string(30106), f'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&{query_sub}'),
+            (self.get_string(30107), f'plugin://plugin.video.youtube/kodion/search/query/?{query}'),
         ]
-        provider = self.dialog.select(self.plugin.get_string(30104) % (args.get('q', [''])[0]), [k for k,v in options])
+        provider = self.dialog.select(self.get_string(30104) % (args.get('q', [''])[0]), [k for k,v in options])
         if provider >= 0:
             path = options[provider][1]
             xbmc.executebuiltin(f'Container.Update({path})')
 
     def sign_in(self):
-        emailaddress = self.dialog.input(self.plugin.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)
+        emailaddress = self.dialog.input(self.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)
         if emailaddress == '':
             return False
-        password = self.dialog.input(self.plugin.get_string(30016), type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
+        password = self.dialog.input(self.get_string(30016), type=xbmcgui.INPUT_ALPHANUM, option=xbmcgui.ALPHANUM_HIDE_INPUT)
         if password == '':
             return False
         return self.login(prompt=True, emailaddress=emailaddress, password=password)
@@ -468,7 +479,7 @@ class TripleR():
 
         if logged_in:
             if prompt:
-                self._notify(self.plugin.get_string(30077) % (emailaddress), self.plugin.get_string(30078))
+                self._notify(self.get_string(30077) % (emailaddress), self.get_string(30078))
             if not self.addon.getSettingBool('authenticated'):
                 self.addon.setSetting('subscribed-check', '0')
                 self.addon.setSettingBool('authenticated', True)
@@ -484,7 +495,7 @@ class TripleR():
             self._signed_in = logged_in
         else:
             if prompt:
-                self._notify(self.plugin.get_string(30085), self.plugin.get_string(30086) % (emailaddress))
+                self._notify(self.get_string(30085), self.get_string(30086) % (emailaddress))
             self.addon.setSettingBool('authenticated', False)
             self.addon.setSetting('emailaddress', '')
             self.addon.setSetting('fullname', '')
@@ -500,13 +511,13 @@ class TripleR():
             self.addon.setSettingInt('subscribed', 0)
             self._signed_in = -1
             if emailaddress:
-                self._notify(self.plugin.get_string(30079) % (emailaddress), self.plugin.get_string(30078))
+                self._notify(self.get_string(30079) % (emailaddress), self.get_string(30078))
             self.addon.setSetting('emailaddress', '')
             self.addon.setSetting('fullname', '')
             return True
         else:
             if emailaddress:
-                self._notify(self.plugin.get_string(30087), self.plugin.get_string(30088) % (emailaddress))
+                self._notify(self.get_string(30087), self.get_string(30088) % (emailaddress))
             return False
 
     def subscribed(self):
@@ -528,19 +539,13 @@ class TripleR():
             source = self.website.enter(path)
 
             if 'Thank you! You have been entered' in source:
-                self._notify(self.plugin.get_string(30071), self.plugin.get_string(30072))
+                self._notify(self.get_string(30071), self.get_string(30072))
             elif 'already entered this giveaway' in source:
-                self._notify(self.plugin.get_string(30073), self.plugin.get_string(30074))
+                self._notify(self.get_string(30073), self.get_string(30074))
             else:
-                self._notify(self.plugin.get_string(30073), self.plugin.get_string(30075))
+                self._notify(self.get_string(30073), self.get_string(30075))
 
         else:
-            self._notify(self.plugin.get_string(30073), self.plugin.get_string(30076))
+            self._notify(self.get_string(30073), self.get_string(30076))
 
 instance = TripleR()
-
-@instance.plugin.route('/.*')
-def router():
-    result = instance.parse()
-    if result:
-        return result
