@@ -18,7 +18,7 @@ class TripleR():
         self.matrix     = '19.' in xbmc.getInfoLabel('System.BuildVersion')
         self.handle     = int(sys.argv[1])
         self.id         = 'plugin.audio.tripler'
-        self.url        = f'plugin://{self.id}'
+        self.url        = 'plugin://' + self.id
         self.tz         = pytz.timezone('Australia/Melbourne')
         self.addon      = Addon()
         self.dialog     = xbmcgui.Dialog()
@@ -69,7 +69,9 @@ class TripleR():
             if self.ext_search(args):
                 return
 
-        path = '/{}{}{}'.format('/'.join(segments), '?' if args else '', urlencode(args, doseq=True))
+        path = '/' + '/'.join(segments)
+        if args:
+            path += '?' + urlencode(args, doseq=True)
 
         if len(segments[0]) < 1:
             return self.main_menu()
@@ -98,17 +100,17 @@ class TripleR():
     def main_menu(self):
         items = [
             self.livestream_item(),
-            {'label': self.get_string(30032), 'path': f'{self.url}/programs', 'icon': 'DefaultPartyMode.png'},
-            {'label': self.get_string(30033), 'path': f'{self.url}/schedule', 'icon': 'DefaultYear.png'},
-            # {'label': self.get_string(30034), 'path': f'{self.url}/broadcasts', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.get_string(30035), 'path': f'{self.url}/segments', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.get_string(30036), 'path': f'{self.url}/archives', 'icon': 'DefaultPlaylist.png'},
-            {'label': self.get_string(30037), 'path': f'{self.url}/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
-            {'label': self.get_string(30038), 'path': f'{self.url}/soundscapes', 'icon': 'DefaultSets.png'},
-            {'label': self.get_string(30042), 'path': f'{self.url}/videos', 'icon': 'DefaultMusicVideos.png'},
-            {'label': self.get_string(30039), 'path': f'{self.url}/events', 'icon': 'DefaultPVRGuide.png'},
-            {'label': self.get_string(30040), 'path': f'{self.url}/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
-            {'label': self.get_string(30041), 'path': f'{self.url}/search', 'icon': 'DefaultMusicSearch.png'},
+            {'label': self.get_string(30032), 'path': self.url + '/programs', 'icon': 'DefaultPartyMode.png'},
+            {'label': self.get_string(30033), 'path': self.url + '/schedule', 'icon': 'DefaultYear.png'},
+            # {'label': self.get_string(30034), 'path': self.url + '/broadcasts', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30035), 'path': self.url + '/segments', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30036), 'path': self.url + '/archives', 'icon': 'DefaultPlaylist.png'},
+            {'label': self.get_string(30037), 'path': self.url + '/featured_albums', 'icon': 'DefaultMusicAlbums.png'},
+            {'label': self.get_string(30038), 'path': self.url + '/soundscapes', 'icon': 'DefaultSets.png'},
+            {'label': self.get_string(30042), 'path': self.url + '/videos', 'icon': 'DefaultMusicVideos.png'},
+            {'label': self.get_string(30039), 'path': self.url + '/events', 'icon': 'DefaultPVRGuide.png'},
+            {'label': self.get_string(30040), 'path': self.url + '/giveaways', 'icon': 'DefaultAddonsRecentlyUpdated.png'},
+            {'label': self.get_string(30041), 'path': self.url + '/search', 'icon': 'DefaultMusicSearch.png'},
         ]
         if self.login():
             emailaddress = self.addon.getSetting('emailaddress')
@@ -117,7 +119,7 @@ class TripleR():
             items.append(
                 {
                     'label':     f'{self.get_string(30014)} ({name})',
-                    'path':      f'{self.url}/sign-out',
+                    'path':      self.url + '/sign-out',
                     'icon':  'DefaultUser.png',
                 }
             )
@@ -125,7 +127,7 @@ class TripleR():
             items.append(
                 {
                     'label':      self.get_string(30013),
-                    'path':      f'{self.url}/sign-in',
+                    'path':      self.url + '/sign-in',
                     'icon':  'DefaultUser.png',
                 }
             )
@@ -162,7 +164,7 @@ class TripleR():
         return item
 
     def _sub_item(self, text):
-        path = f'{self.url}/settings'
+        path = self.url + '/settings'
         li = xbmcgui.ListItem(text, '', path, True)
         li.setArt({'thumbnail': os.path.join(self._respath, 'qr-subscribe.png')})
         return (path, li, True)
@@ -259,7 +261,7 @@ class TripleR():
                 title   = f'{title} ({self.get_string(30052)})'
                 thumbnail   = 'DefaultMusicSongs.png'
                 ext_search  = m_links.get('broadcast_track').replace('search', 'ext_search')
-                pathurl     = self._k_title(f'{self.url}{ext_search}', attributes.get('title'))
+                pathurl     = self._k_title(self.url + ext_search, attributes.get('title'))
                 is_playable = False
 
             icon = thumbnail
@@ -269,7 +271,7 @@ class TripleR():
                     icon        =  'OverlayLocked.png'
                     title       = f'{self.get_string(30081)} - {title}'
                     textbody    = f'{self.get_string(30081)}\n{textbody}'
-                    pathurl     = f'{self.url}{m_sub}'
+                    pathurl     = self.url + m_sub
                     is_playable = False
                 else:
                     title       = f'{self.get_string(30084)} - {title}'
@@ -295,7 +297,7 @@ class TripleR():
                 mediatype   = 'song'
                 info_type   = 'video'
             else:
-                pathurl     = self._k_title(f'{self.url}{m_self}', attributes.get('title'))
+                pathurl     = self._k_title(self.url + m_self, attributes.get('title'))
                 is_playable = False
                 mediatype   = ''
                 info_type   = 'video'
@@ -377,13 +379,11 @@ class TripleR():
             next_date = links.get('next', '?date=').split('?date=')[-1]
 
             if links.get('next'):
-                k_title_new = self._k_title(links['next'], k_title)
-                path = f'{self.url}{k_title_new}'
+                path = self.url + self._k_title(links['next'], k_title)
                 li = xbmcgui.ListItem(self.get_string(30061) % (next_date), '', path, True)
                 items.insert(0, (path, li, True))
 
-            k_title_new = self._k_title(f'/schedule?picker={self_date}', k_title)
-            path = f'{self.url}{k_title_new}'
+            path = self.url + self._k_title(f'/schedule?picker={self_date}', k_title)
             li = xbmcgui.ListItem(self.get_string(30065) % (self_date), '', path, True)
             li.setArt({'icon': 'DefaultPVRGuide.png'})
             items.insert(0, (path, li, True))
@@ -395,13 +395,11 @@ class TripleR():
         elif links and links.get('next'):
             if len(items) > 0:
                 if links.get('next'):
-                    k_title_new = self._k_title(links['next'], k_title)
-                    path = f'{self.url}{k_title_new}'
+                    path = self.url + self._k_title(links['next'], k_title)
                     li = xbmcgui.ListItem(self.nextpage, '', path, True)
                     items.append((path, li, True))
                 if links.get('last'):
-                    k_title_new = self._k_title(links['last'], k_title)
-                    path = f'{self.url}{k_title_new}'
+                    path = self.url + self._k_title(links['last'], k_title)
                     li = xbmcgui.ListItem(self.lastpage, '', path, True)
                     items.append((path, li, True))
 
@@ -412,7 +410,7 @@ class TripleR():
 
         elif 'search' in segments and 'tracks' not in segments:
             link = links.get('self').split('?page=')[0]
-            path = f'{self.url}/tracks{link}'
+            path = self.url + '/tracks' + link
             li = xbmcgui.ListItem(self.get_string(30066), '', path, True)
             li.setArt({'icon': 'DefaultMusicSearch.png'})
             items.insert(0, (path, li, True))
