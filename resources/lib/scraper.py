@@ -1597,17 +1597,19 @@ class PlayableResource(Resource):
         else:
             start, end = self._on_air_status
             localtime = datetime.now(TZ_MELBOURNE)
+            title = None
 
             if start and end:
                 if start > localtime:
                     title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
                 if start < localtime and end > localtime:
-                    onair = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
-                    title = onair.find('span') if onair else None
+                    title = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
                 if end < localtime:
                     title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
+            else:
+                title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
 
-            return title.text if title else None
+            return title.find('span').text if title else None
 
     @property
     def subtitle(self):
@@ -1652,8 +1654,9 @@ class PlayableResource(Resource):
             start, end = self._on_air_status
             localtime = datetime.now(TZ_MELBOURNE)
 
-            if start < localtime and end > localtime:
-                return 'https://ondemand.rrr.org.au/stream/ws-hq.m3u'
+            if start and end:
+                if start < localtime and end > localtime:
+                    return 'https://ondemand.rrr.org.au/stream/ws-hq.m3u'
 
     @property
     def thumbnail(self):
