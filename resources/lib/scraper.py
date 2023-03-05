@@ -489,6 +489,11 @@ class ExternalMedia:
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
 
+    RE_SPOTIFY_ALBUM_ID              = re.compile(r'.+spotify\.com(\/embed)?\/album\/(?P<media_id>[^&?\/]+)')
+    RE_SPOTIFY_PLAYLIST_ID           = re.compile(r'.+spotify\.com(\/embed)?\/playlist\/(?P<media_id>[^&]+)')
+    RE_SPOTIFY_ALBUM_ART             = re.compile(r'\-\-image\-src:url\((\&\#x27\;|\')(?P<art_url>[^\&\']+)(\&\#x27\;|\')')
+    RE_SPOTIFY_DURATION              = re.compile(r'<\/h4><div class="[^"]+">(?P<duration>[^<]+)</div></li>')
+
     RE_MEDIA_URLS = {
         'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
@@ -510,6 +515,12 @@ class ExternalMedia:
         },
         'indigitube': {
             're':     RE_INDIGITUBE_ALBUM_ID,
+        },
+        'spotify': {
+            're':     RE_SPOTIFY_ALBUM_ID,
+        },
+        'spotify_playlist': {
+            're':     RE_SPOTIFY_PLAYLIST_ID,
         },
     }
 
@@ -549,6 +560,8 @@ class ExternalMedia:
             album_art = self.bandcamp_album_art(media_id)
         elif plugin == 'bandcamp_track':
             album_art = self.bandcamp_track_art(media_id)
+        elif plugin == 'spotify' or plugin == 'spotify_playlist':
+            album_art = self.spotify_album_art(match['src'])
         elif plugin == 'youtube_playlist':
             album_art = self.youtube_playlist_art(media_id)
         elif plugin == 'youtube' or plugin == 'youtube_art':
@@ -637,6 +650,23 @@ class ExternalMedia:
             result['duration'] = sum(durations)
         return result
 
+    def spotify_album_art(self, src):
+        api_url = src
+        try:
+            spotify_page = get_json(api_url)
+        except URLError as e:
+            sys.stderr.write(f'Error fetching {api_url}: {e}')
+
+        art_match       = re.search(self.RE_SPOTIFY_ALBUM_ART, spotify_page)
+        duration_match  = re.findall(self.RE_SPOTIFY_DURATION, spotify_page)
+
+        result = {}
+        if art_match:
+            result['art'] = art_match.groupdict().get('art_url')
+        if duration_match:
+            durations = [int(x.split(':')[0]) * 60 + int(x.split(':')[1]) for x in duration_match]
+            result['duration'] = sum(durations)
+        return result
 
 class FeaturedAlbumScraper(Scraper, ExternalMedia):
     RESOURCE_PATH_PATTERN = '/featured_albums/{album_id}'

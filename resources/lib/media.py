@@ -30,6 +30,11 @@ class Media:
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
 
+    RE_SPOTIFY_ALBUM_ID              = re.compile(r'.+spotify\.com(\/embed)?\/album\/(?P<media_id>[^&?\/]+)')
+    RE_SPOTIFY_PLAYLIST_ID           = re.compile(r'.+spotify\.com(\/embed)?\/playlist\/(?P<media_id>[^&]+)')
+
+    EXT_SEARCH_PLUGIN_FORMAT         = 'plugin://plugin.audio.tripler/tracks/ext_search?q={search}'
+
     RE_MEDIA_URLS = {
         'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
@@ -63,19 +68,28 @@ class Media:
         },
         'indigitube': {
             're':     RE_INDIGITUBE_ALBUM_ID,
-            'base':   '',
-            'format': '',
+            'format': EXT_SEARCH_PLUGIN_FORMAT,
             'name':   'IndigiTube',
+        },
+        'spotify': {
+            're':     RE_SPOTIFY_ALBUM_ID,
+            'format': EXT_SEARCH_PLUGIN_FORMAT,
+            'name':   'Spotify',
+        },
+        'spotify_playlist': {
+            're':     RE_SPOTIFY_PLAYLIST_ID,
+            'format': EXT_SEARCH_PLUGIN_FORMAT,
+            'name':   'Spotify',
         },
     }
 
     def __init__(self, quality):
         self.quality = quality
 
-    def parse_media_id(self, plugin, media_id):
+    def parse_media_id(self, plugin, media_id, search=''):
         info = self.RE_MEDIA_URLS.get(plugin, {})
         if info:
-            return info.get('format').format(info.get('base'), media_id)
+            return info.get('format', '').format(info.get('base', ''), media_id, search=search)
         else:
             return ''
 

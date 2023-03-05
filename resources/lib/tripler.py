@@ -64,10 +64,11 @@ class TripleR():
             search = self.search(tracks=('tracks' in segments))
             if search:
                 args['q'] = search
+            return
 
         if 'ext_search' in segments:
-            if self.ext_search(args):
-                return
+            self.ext_search(args)
+            return
 
         path = '/' + '/'.join(segments)
         if args:
@@ -221,13 +222,14 @@ class TripleR():
 
             if m_type in self.supported_plugins:
                 title       = attributes.get('title', '')
-                name        = Media.RE_MEDIA_URLS[m_type].get('name')
                 artist      = attributes.get('artist')
                 if artist:
                     title   = f'{artist} - {title}'
+                pathurl     = self.media.parse_media_id(m_type, m_id, quote_plus(title.split('(')[0].strip()))
+
+                name        = Media.RE_MEDIA_URLS[m_type].get('name')
                 title       = f'{title} ({name})'
                 textbody    = f'{self.get_string(30008)}\n' % (name) + textbody
-                pathurl     = self.media.parse_media_id(m_type, m_id)
 
                 if 'bandcamp' in m_type:
                     thumbnail = self.media.parse_art(thumbnail)
