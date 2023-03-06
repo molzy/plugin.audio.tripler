@@ -923,7 +923,7 @@ class SoundscapeScraper(Scraper, ExternalMedia):
             while iframe != None and iframe.find('iframe') == None:
                 iframe = iframe.find_next_sibling()
             if iframe == None or len(heading.text) < 2:
-                break
+                continue
 
             aotw = len(heading.text.split('**')) > 1
 
