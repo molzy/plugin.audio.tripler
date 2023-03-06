@@ -1843,7 +1843,7 @@ class ProgramBroadcastTrack(Resource, ExternalMedia):
 
     @property
     def broadcast_track(self):
-        params = { 'q': f'{self.title} {self.artist}' }
+        params = { 'q': f'{self.title} - {self.artist}' }
         return '/tracks/search?' + urlencode(params)
 
     @property

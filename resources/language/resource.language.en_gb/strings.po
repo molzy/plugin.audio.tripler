@@ -336,13 +336,13 @@ msgid "Search for '%s'"
 msgstr ""
 
 msgctxt "#30105"
-msgid "Search on Triple R"
+msgid "Search for '%s' on Triple R"
 msgstr ""
 
 msgctxt "#30106"
-msgid "Search on Bandcamp"
+msgid "Search for '%s' on Bandcamp"
 msgstr ""
 
 msgctxt "#30107"
-msgid "Search on YouTube"
+msgid "Search for '%s' on YouTube"
 msgstr ""

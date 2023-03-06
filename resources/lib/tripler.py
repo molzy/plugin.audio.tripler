@@ -119,17 +119,17 @@ class TripleR():
             name = fullname if fullname else emailaddress
             items.append(
                 {
-                    'label':     f'{self.get_string(30014)} ({name})',
-                    'path':      self.url + '/sign-out',
-                    'icon':  'DefaultUser.png',
+                    'label': f'{self.get_string(30014)} ({name})',
+                    'path': self.url + '/sign-out',
+                    'icon': 'DefaultUser.png',
                 }
             )
         else:
             items.append(
                 {
-                    'label':      self.get_string(30013),
-                    'path':      self.url + '/sign-in',
-                    'icon':  'DefaultUser.png',
+                    'label': self.get_string(30013),
+                    'path': self.url + '/sign-in',
+                    'icon': 'DefaultUser.png',
                 }
             )
 
@@ -140,7 +140,7 @@ class TripleR():
             li = xbmcgui.ListItem(item['label'], '', path, True)
             li.setArt(
                 {
-                    'icon':   item['icon'],
+                    'icon': item['icon'],
                     'fanart': self.fanart,
                 }
             )
@@ -229,7 +229,7 @@ class TripleR():
 
                 name        = Media.RE_MEDIA_URLS[m_type].get('name')
                 title       = f'{title} ({name})'
-                textbody    = f'{self.get_string(30008)}\n' % (name) + textbody
+                textbody    = self.get_string(30008) % (name) + '\n' + textbody
 
                 if 'bandcamp' in m_type:
                     thumbnail = self.media.parse_art(thumbnail)
@@ -321,7 +321,10 @@ class TripleR():
                     'fanart':    fanart,
                 }
             )
-            li.setProperties({'StationName': self.get_string(30000)})
+            li.setProperties({
+                'StationName': self.get_string(30000),
+                'IsPlayable': 'true' if is_playable else 'false',
+            })
 
             context_menu = []
 
@@ -334,10 +337,6 @@ class TripleR():
                     textbody += f'\n{self.get_string(30100)}' % (self.get_string(30102))
                 ext_search = m_links.get('broadcast_track').replace('search', 'ext_search')
                 context_menu.append(self.context_item(30102, ext_search))
-
-            if 'broadcast_artist' in m_links:
-                ext_search = m_links.get('broadcast_artist').replace('search', 'ext_search')
-                context_menu.append(self.context_item(30103, ext_search))
 
             if context_menu:
                 li.addContextMenuItems(context_menu)
@@ -444,17 +443,37 @@ class TripleR():
         return self.dialog.input(prompt, type=xbmcgui.INPUT_ALPHANUM)
 
     def ext_search(self, args):
-        query = urlencode(args, doseq=True)
-        query_sub = urlencode({'query': args.get('q', [''])}, doseq=True)
-        options = [
-            (self.get_string(30105), f'plugin://{self.id}/tracks/search?{query}'),
-            (self.get_string(30106), f'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&{query_sub}'),
-            (self.get_string(30107), f'plugin://plugin.video.youtube/kodion/search/query/?{query}'),
-        ]
-        provider = self.dialog.select(self.get_string(30104) % (args.get('q', [''])[0]), [k for k,v in options])
-        if provider >= 0:
-            path = options[provider][1]
-            xbmc.executebuiltin(f'Container.Update({path})')
+        q = args.get('q', [''])
+        title = q[0]
+        opts = q
+        if ' - ' in q[0]:
+            qsplit = q[0].split(' - ')
+            opts.append(qsplit[0])
+            opts.append(qsplit[1])
+
+        options = []
+        for opt in opts:
+            query = urlencode({'q': [opt]}, doseq=True)
+            query_sub = urlencode({'query': [opt]}, doseq=True)
+            options.append({'label': self.get_string(30105) % opt, 'path': self.url + '/tracks/search?' + query})
+            options.append({'label': self.get_string(30106) % opt, 'path': 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&' + query_sub})
+            options.append({'label': self.get_string(30107) % opt, 'path': 'plugin://plugin.video.youtube/kodion/search/query/?' + query})
+
+        listitems = []
+        for item in options:
+            li = xbmcgui.ListItem(item['label'], '', item['path'], True)
+            li.setArt(
+                {
+                    'icon': 'DefaultMusicSearch.png',
+                    'fanart': self.fanart,
+                }
+            )
+            listitems.append((item['path'], li, True))
+
+        xbmcplugin.setPluginCategory(self.handle, self.get_string(30104) % title)
+        xbmcplugin.addDirectoryItems(self.handle, listitems, len(listitems))
+        xbmcplugin.addSortMethod(self.handle, xbmcplugin.SORT_METHOD_UNSORTED)
+        xbmcplugin.endOfDirectory(self.handle)
 
     def sign_in(self):
         emailaddress = self.dialog.input(self.get_string(30015), type=xbmcgui.INPUT_ALPHANUM)
