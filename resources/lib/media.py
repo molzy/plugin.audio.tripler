@@ -72,22 +72,22 @@ class Media:
         'indigitube': {
             're':     RE_INDIGITUBE_ALBUM_ID,
             'format': EXT_SEARCH_PLUGIN_FORMAT,
-            'name':   'IndigiTube',
+            'name':   'Album Search',
         },
         'spotify': {
             're':     RE_SPOTIFY_ALBUM_ID,
             'format': EXT_SEARCH_PLUGIN_FORMAT,
-            'name':   'Spotify',
+            'name':   'Album Search',
         },
         'spotify_playlist': {
             're':     RE_SPOTIFY_PLAYLIST_ID,
             'format': EXT_SEARCH_PLUGIN_FORMAT,
-            'name':   'Spotify',
+            'name':   'Playlist Search',
         },
         'apple': {
             're':     RE_APPLE_ALBUM_ID,
             'format': EXT_SEARCH_PLUGIN_FORMAT,
-            'name':   'Apple Music',
+            'name':   'Album Search',
         },
     }
 
