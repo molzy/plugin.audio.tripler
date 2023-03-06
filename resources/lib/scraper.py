@@ -494,6 +494,11 @@ class ExternalMedia:
     RE_SPOTIFY_ALBUM_ART             = re.compile(r'\-\-image\-src:url\((\&\#x27\;|\')(?P<art_url>[^\&\']+)(\&\#x27\;|\')')
     RE_SPOTIFY_DURATION              = re.compile(r'<\/h4><div class="[^"]+">(?P<duration>[^<]+)</div></li>')
 
+    RE_APPLE_ALBUM_ID                = re.compile(r'.+music\.apple\.com\/au\/album\/(?P<media_id>.+)')
+    APPLE_ALBUM_URL                  = 'https://music.apple.com/au/album/{}'
+    RE_APPLE_ALBUM_ART               = re.compile(r'meta name="twitter:image" content="(?P<art_url>[^"]+)">')
+    RE_APPLE_DURATION                = re.compile(r'meta property="music:song:duration" content="PT(?P<hours>[\d]+H)?(?P<minutes>[\d]+M)?(?P<seconds>[\d]+S)?">')
+
     RE_MEDIA_URLS = {
         'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
@@ -521,6 +526,9 @@ class ExternalMedia:
         },
         'spotify_playlist': {
             're':     RE_SPOTIFY_PLAYLIST_ID,
+        },
+        'apple': {
+            're':     RE_APPLE_ALBUM_ID,
         },
     }
 
@@ -562,6 +570,8 @@ class ExternalMedia:
             album_art = self.bandcamp_track_art(media_id)
         elif plugin == 'spotify' or plugin == 'spotify_playlist':
             album_art = self.spotify_album_art(match['src'])
+        elif plugin == 'apple':
+            album_art = self.apple_album_art(media_id)
         elif plugin == 'youtube_playlist':
             album_art = self.youtube_playlist_art(media_id)
         elif plugin == 'youtube' or plugin == 'youtube_art':
@@ -574,9 +584,27 @@ class ExternalMedia:
         result['duration']   = album_art.get('duration')
         return result
 
+    def get_sum_duration(self, duration_matches):
+        durations = [int(x.split(':')[0]) * 60 + int(x.split(':')[1]) for x in duration_matches]
+        return sum(durations)
+
+    def get_pt_duration(self, duration):
+        result = 0
+        if duration['hours']:
+            result += int(duration['hours'][:-1]) * 3600
+        if duration['minutes']:
+            result += int(duration['minutes'][:-1]) * 60
+        if duration['seconds']:
+            result += int(duration['seconds'][:-1])
+        return result
+
     def bandcamp_album_art(self, album_id):
         api_url  = self.BANDCAMP_ALBUM_ART_URL.format(album_id)
-        json_obj = get_json_obj(api_url)
+        try:
+            json_obj = get_json_obj(api_url)
+        except URLError as e:
+            return {}
+
         art_id   = json_obj.get('art_id')
         band_id  = json_obj.get('band', {}).get('image_id')
 
@@ -594,7 +622,11 @@ class ExternalMedia:
         return result
 
     def bandcamp_track_art(self, track_url):
-        track_page      = get_json(track_url)
+        try:
+            track_page = get_json(track_url)
+        except URLError as e:
+            return {}
+
         art_match       = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
         band_match      = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
         duration_match  = re.search(self.RE_BANDCAMP_TRACK_DURATION, track_page)
@@ -614,18 +646,13 @@ class ExternalMedia:
         try:
             video_page  = get_json(video_url)
         except URLError as e:
-            sys.stderr.write(f'Error fetching {video_url}: {e}')
+            return 0
 
         duration_match  = re.search(self.RE_YOUTUBE_VIDEO_DURATION, video_page)
         result = 0
         if duration_match:
             gd = duration_match.groupdict()
-            if gd['hours']:
-                result += int(gd['hours'][:-1]) * 3600
-            if gd['minutes']:
-                result += int(gd['minutes'][:-1]) * 60
-            if gd['seconds']:
-                result += int(gd['seconds'][:-1])
+            result = self.get_pt_duration(gd)
 
         return result
 
@@ -634,10 +661,10 @@ class ExternalMedia:
         try:
             playlist_page = get_json(api_url)
         except URLError as e:
-            sys.stderr.write(f'Error fetching {api_url}: {e}')
+            return {}
 
-        art_match       = re.search(self.RE_YOUTUBE_PLAYLIST_ART, playlist_page)
-        duration_match  = re.findall(self.RE_YOUTUBE_PLAYLIST_DURATION, playlist_page)
+        art_match        = re.search(self.RE_YOUTUBE_PLAYLIST_ART, playlist_page)
+        duration_matches = re.findall(self.RE_YOUTUBE_PLAYLIST_DURATION, playlist_page)
 
         result = {}
         if art_match:
@@ -645,9 +672,8 @@ class ExternalMedia:
         else:
             art_match = re.search(self.RE_YOUTUBE_PLAYLIST_ART_LQ, playlist_page)
             result['art'] = art_match.groupdict().get('art_url')
-        if duration_match:
-            durations = [int(x.split(':')[0]) * 60 + int(x.split(':')[1]) for x in duration_match]
-            result['duration'] = sum(durations)
+        if duration_matches:
+            result['duration'] = self.get_sum_duration(duration_matches)
         return result
 
     def spotify_album_art(self, src):
@@ -655,17 +681,35 @@ class ExternalMedia:
         try:
             spotify_page = get_json(api_url)
         except URLError as e:
-            sys.stderr.write(f'Error fetching {api_url}: {e}')
+            return {}
 
-        art_match       = re.search(self.RE_SPOTIFY_ALBUM_ART, spotify_page)
-        duration_match  = re.findall(self.RE_SPOTIFY_DURATION, spotify_page)
+        art_match        = re.search(self.RE_SPOTIFY_ALBUM_ART, spotify_page)
+        duration_matches = re.findall(self.RE_SPOTIFY_DURATION, spotify_page)
 
         result = {}
         if art_match:
             result['art'] = art_match.groupdict().get('art_url')
-        if duration_match:
-            durations = [int(x.split(':')[0]) * 60 + int(x.split(':')[1]) for x in duration_match]
-            result['duration'] = sum(durations)
+        if duration_matches:
+            result['duration'] = self.get_sum_duration(duration_matches)
+        return result
+
+    def apple_album_art(self, album_id):
+        api_url = self.APPLE_ALBUM_URL.format(album_id)
+        try:
+            album_page  = get_json(api_url)
+        except URLError as e:
+            return {}
+
+        art_match       = re.search(self.RE_APPLE_ALBUM_ART, album_page)
+        duration_match  = re.finditer(self.RE_APPLE_DURATION, album_page)
+        result = {'duration': 0}
+
+        if art_match:
+            result['art'] = art_match.groupdict().get('art_url')
+        for duration in duration_match:
+            gd = duration.groupdict()
+            result['duration'] += self.get_pt_duration(duration)
+
         return result
 
 class FeaturedAlbumScraper(Scraper, ExternalMedia):

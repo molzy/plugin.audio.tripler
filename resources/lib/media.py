@@ -33,6 +33,9 @@ class Media:
     RE_SPOTIFY_ALBUM_ID              = re.compile(r'.+spotify\.com(\/embed)?\/album\/(?P<media_id>[^&?\/]+)')
     RE_SPOTIFY_PLAYLIST_ID           = re.compile(r'.+spotify\.com(\/embed)?\/playlist\/(?P<media_id>[^&]+)')
 
+    RE_APPLE_ALBUM_ID                = re.compile(r'.+music\.apple\.com\/au\/album\/(?P<media_id>.+)')
+    APPLE_ALBUM_URL                  = 'https://music.apple.com/au/album/{}'
+
     EXT_SEARCH_PLUGIN_FORMAT         = 'plugin://plugin.audio.tripler/tracks/ext_search?q={search}'
 
     RE_MEDIA_URLS = {
@@ -81,6 +84,11 @@ class Media:
             'format': EXT_SEARCH_PLUGIN_FORMAT,
             'name':   'Spotify',
         },
+        'apple': {
+            're':     RE_APPLE_ALBUM_ID,
+            'format': EXT_SEARCH_PLUGIN_FORMAT,
+            'name':   'Apple Music',
+        },
     }
 
     def __init__(self, quality):
@@ -98,6 +106,8 @@ class Media:
             band = '/img/a' not in art
             quality = self._bandcamp_band_quality() if band else self._bandcamp_album_quality()
             art = re.sub(self.RE_BANDCAMP_ART_QUALITY_SEARCH, f'/img/\g<art>_{quality}.jpg', art)
+        if art and '/600x600bf-60.jpg' in art:
+            art = art.replace('/600x600bf-60.jpg', self._apple_album_quality())
         return art
 
     def _bandcamp_band_quality(self):
@@ -115,3 +125,11 @@ class Media:
             return 2 # 350px wide
         if self.quality == 2:
             return 9 # 210px wide
+
+    def _apple_album_quality(self):
+        if self.quality == 0:
+            return '/600x600bf.jpg'
+        if self.quality == 1:
+            return '/600x600bf-60.jpg'
+        if self.quality == 2:
+            return '/300x300bb-60.jpg'
