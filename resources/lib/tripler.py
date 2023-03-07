@@ -451,19 +451,35 @@ class TripleR():
             opts.append(qsplit[0])
             opts.append(qsplit[1])
 
+        yt_addon = 'special://home/addons/plugin.video.youtube/'
+        yt_icon = yt_addon + ('icon.png' if self.matrix else 'resources/media/icon.png')
+
         options = []
         for opt in opts:
             query = urlencode({'q': [opt]}, doseq=True)
             query_sub = urlencode({'query': [opt]}, doseq=True)
-            options.append({'label': self.get_string(30105) % opt, 'path': self.url + '/tracks/search?' + query})
-            options.append({'label': self.get_string(30106) % opt, 'path': 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&' + query_sub})
-            options.append({'label': self.get_string(30107) % opt, 'path': 'plugin://plugin.video.youtube/kodion/search/query/?' + query})
+            options.append({
+                'label': self.get_string(30105) % opt,
+                'path': self.url + '/tracks/search?' + query,
+                'icon': self.icon,
+            })
+            options.append({
+                'label': self.get_string(30106) % opt,
+                'path': 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&' + query_sub,
+                'icon': 'special://home/addons/plugin.audio.kxmxpxtx.bandcamp/icon.png',
+            })
+            options.append({
+                'label': self.get_string(30107) % opt,
+                'path': 'plugin://plugin.video.youtube/kodion/search/query/?' + query,
+                'icon': yt_icon,
+            })
 
         listitems = []
         for item in options:
             li = xbmcgui.ListItem(item['label'], '', item['path'], True)
             li.setArt(
                 {
+                    'thumb': item.get('icon', 'DefaultMusicSearch.png'),
                     'icon': 'DefaultMusicSearch.png',
                     'fanart': self.fanart,
                 }
