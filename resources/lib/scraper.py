@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import bs4, time, json, re, sys
+import bs4, html, time, json, re, sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import pytz
@@ -468,8 +468,13 @@ class ExternalMedia:
     RE_BANDCAMP_ALBUM_ART            = re.compile(r'"art_id":(\w+)')
     BANDCAMP_ALBUM_ART_URL           = 'https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=a&tralbum_id={}'
 
+    RE_BANDCAMP_ALBUM_LINK_ID        = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/album/[\w\-]+)')
+    RE_BANDCAMP_BAND_LINK_ID         = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/)$')
+
     RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
     RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
+    RE_BANDCAMP_TRACK_TITLE          = re.compile(r'\<h2 class\="trackTitle"\>\s+(?P<title>[^\n]*)\s+\<\/h2\>')
+    RE_BANDCAMP_TRACK_ARTIST         = re.compile(r'data-band="[^"]*;name&quot;:&quot;(?P<artist>[^&]+)&quot;')
     RE_BANDCAMP_TRACK_DURATION       = re.compile(r'duration&quot;:(?P<duration>[\d\.]+),')
     RE_BANDCAMP_TRACK_BAND_ART       = re.compile(r'data-band="[^"]*image_id&quot;:(?P<band_art_id>\d+)}"')
 
@@ -477,6 +482,9 @@ class ExternalMedia:
 
     RE_YOUTUBE_VIDEO_ID              = re.compile(r'^(?:(?:https?:)?\/\/)?(?:(?:www|m)\.)?(?:youtube(?:-nocookie)?\.com|youtu.be)(?:\/(?:[\w\-]+\?v=|embed\/|v\/)?)(?P<media_id>[\w\-]+)(?!.*list)\S*$')
     RE_YOUTUBE_VIDEO_ART_ID          = re.compile(r'^https:\/\/i\.ytimg\.com\/vi\/(?P<media_id>[\w\-]+)\/hqdefault\.jpg$')
+    RE_YOUTUBE_VIDEO_TITLE           = re.compile(r'"videoDetails":{[^}]*,"title":"(?P<title>[^"]+)"')
+    RE_YOUTUBE_VIDEO_ARTIST          = re.compile(r'<link itemprop="name" content="(?P<artist>[^"]+)"')
+    RE_YOUTUBE_VIDEO_DESC            = re.compile(r'"attributedDescription":{"content":"(?P<textbody>[^{]*)","')
     RE_YOUTUBE_VIDEO_DURATION        = re.compile(r'itemprop="duration" content="PT(?P<hours>[\d]+H)?(?P<minutes>[\d]+M)?(?P<seconds>[\d]+S)?"')
     YOUTUBE_VIDEO_DURATION_URL       = 'https://www.youtube.com/watch?v={}'
     YOUTUBE_VIDEO_ART_URL_FORMAT     = 'https://i.ytimg.com/vi/{}/hqdefault.jpg'
@@ -485,6 +493,8 @@ class ExternalMedia:
     YOUTUBE_PLAYLIST_ART_URL         = 'https://www.youtube.com/playlist?list={}'
     RE_YOUTUBE_PLAYLIST_ART          = re.compile(r'og:image" content="(?P<art_url>[^"]+)"><meta property="og:image:width" content="640"')
     RE_YOUTUBE_PLAYLIST_ART_LQ       = re.compile(r'og:image" content="(?P<art_url>[^?]+)[^"]+"')
+    RE_YOUTUBE_PLAYLIST_TITLE        = re.compile(r'<meta property="og:title" content="(?P<title>[^"]+)"')
+    RE_YOUTUBE_PLAYLIST_ARTIST       = re.compile(r'"shortBylineText":{"runs":\[{"text":"(?P<artist>[^"]+)"')
     RE_YOUTUBE_PLAYLIST_DURATION     = re.compile(r'"lengthText":[^}]+}},"simpleText":"(?P<duration>[^"]+)"}')
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
@@ -502,6 +512,12 @@ class ExternalMedia:
     RE_MEDIA_URLS = {
         'bandcamp': {
             're':     RE_BANDCAMP_ALBUM_ID,
+        },
+        'bandcamp_link': {
+            're':     RE_BANDCAMP_ALBUM_LINK_ID,
+        },
+        'bandcamp_band_link': {
+            're':     RE_BANDCAMP_BAND_LINK_ID,
         },
         'bandcamp_track': {
             're':     RE_BANDCAMP_TRACK_ID,
@@ -532,8 +548,11 @@ class ExternalMedia:
         },
     }
 
-    def media_items(self, iframes, fetch_album_art=False):
+    fetch_yt_video = False
+
+    def media_items(self, iframes, fetch_album_art=False, fetch_yt_video=False):
         matches = []
+        self.fetch_yt_video = fetch_yt_video
 
         for iframe in iframes:
             if not iframe.get('src'):
@@ -566,6 +585,12 @@ class ExternalMedia:
         album_art = {}
         if plugin == 'bandcamp':
             album_art = self.bandcamp_album_art(media_id)
+        elif plugin == 'bandcamp_link':
+            result['plugin'] = 'bandcamp'
+            album_art = self.bandcamp_track_art(media_id)
+        elif plugin == 'bandcamp_band_link':
+            result['plugin'] = 'bandcamp'
+            album_art = self.bandcamp_band_art(media_id)
         elif plugin == 'bandcamp_track':
             album_art = self.bandcamp_track_art(media_id)
         elif plugin == 'spotify' or plugin == 'spotify_playlist':
@@ -576,12 +601,15 @@ class ExternalMedia:
             album_art = self.youtube_playlist_art(media_id)
         elif plugin == 'youtube' or plugin == 'youtube_art':
             result['plugin'] = 'youtube'
+            if self.fetch_yt_video:
+                album_art = self.youtube_video_duration(media_id)
             album_art['art'] = self.YOUTUBE_VIDEO_ART_URL_FORMAT.format(media_id)
-            # album_art['duration'] = self.youtube_video_duration(media_id)
 
         result['thumbnail']  = album_art.get('art')
         result['background'] = album_art.get('band')
         result['duration']   = album_art.get('duration')
+        result['title']      = album_art.get('title')
+        result['artist']     = album_art.get('artist')
         return result
 
     def get_sum_duration(self, duration_matches):
@@ -608,9 +636,9 @@ class ExternalMedia:
         art_id   = json_obj.get('art_id')
         band_id  = json_obj.get('band', {}).get('image_id')
 
-        duration = 0
+        duration = 0.0
         for track in json_obj.get('tracks', []):
-            duration += int(float(track.get('duration', '0')))
+            duration += float(track.get('duration', '0'))
 
         result = {}
         if art_id:
@@ -618,7 +646,7 @@ class ExternalMedia:
         if band_id:
             result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
         if duration:
-            result['duration'] = duration
+            result['duration'] = int(duration)
         return result
 
     def bandcamp_track_art(self, track_url):
@@ -627,9 +655,11 @@ class ExternalMedia:
         except URLError as e:
             return {}
 
-        art_match       = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
-        band_match      = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
-        duration_match  = re.search(self.RE_BANDCAMP_TRACK_DURATION, track_page)
+        art_match        = re.search(self.RE_BANDCAMP_TRACK_ART, track_page)
+        band_match       = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
+        title_match      = re.search(self.RE_BANDCAMP_TRACK_TITLE, track_page)
+        artist_match     = re.search(self.RE_BANDCAMP_TRACK_ARTIST, track_page)
+        duration_matches = re.finditer(self.RE_BANDCAMP_TRACK_DURATION, track_page)
         result = {}
         if art_match:
             art_id  = art_match.groupdict().get('art_id')
@@ -637,8 +667,35 @@ class ExternalMedia:
         if band_match:
             band_id = band_match.groupdict().get('band_art_id')
             result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
-        if duration_match:
-            result['duration'] = int(float(duration_match.groupdict().get('duration', '0')))
+        if title_match:
+            result['title'] = title_match.groupdict().get('title', '').strip()
+        if artist_match:
+            result['artist'] = artist_match.groupdict().get('artist')
+
+        duration = 0.0
+        for match in duration_matches:
+            duration += float(match.groupdict().get('duration', '0'))
+        result['duration'] = int(duration)
+
+        return result
+
+    def bandcamp_band_art(self, track_url):
+        try:
+            track_page = get_json(track_url)
+        except URLError as e:
+            return {}
+
+        band_match       = re.search(self.RE_BANDCAMP_TRACK_BAND_ART, track_page)
+        artist_match     = re.search(self.RE_BANDCAMP_TRACK_ARTIST, track_page)
+        result = {}
+        if band_match:
+            band_id = band_match.groupdict().get('band_art_id')
+            result['band'] = f'https://f4.bcbits.com/img/{band_id}_20.jpg'
+            result['art']  = result['band']
+        if artist_match:
+            result['artist'] = artist_match.groupdict().get('artist')
+            result['title'] = result['artist']
+
         return result
 
     def youtube_video_duration(self, video_id):
@@ -646,13 +703,22 @@ class ExternalMedia:
         try:
             video_page  = get_json(video_url)
         except URLError as e:
-            return 0
+            return {}
 
         duration_match  = re.search(self.RE_YOUTUBE_VIDEO_DURATION, video_page)
-        result = 0
+        title_match     = re.search(self.RE_YOUTUBE_VIDEO_TITLE, video_page)
+        artist_match    = re.search(self.RE_YOUTUBE_VIDEO_ARTIST, video_page)
+        desc_match      = re.search(self.RE_YOUTUBE_VIDEO_DESC, video_page)
+        result = {'duration': 0}
         if duration_match:
             gd = duration_match.groupdict()
-            result = self.get_pt_duration(gd)
+            result['duration'] = self.get_pt_duration(gd)
+        if title_match:
+            result['title'] = html.unescape(title_match.groupdict().get('title', '').strip())
+        if artist_match:
+            result['artist'] = html.unescape(artist_match.groupdict().get('artist', '').strip())
+        if desc_match:
+            result['textbody'] = html.unescape(desc_match.groupdict().get('textbody', '').strip())
 
         return result
 
@@ -665,6 +731,8 @@ class ExternalMedia:
 
         art_match        = re.search(self.RE_YOUTUBE_PLAYLIST_ART, playlist_page)
         duration_matches = re.findall(self.RE_YOUTUBE_PLAYLIST_DURATION, playlist_page)
+        title_match     = re.search(self.RE_YOUTUBE_PLAYLIST_TITLE, playlist_page)
+        artist_match    = re.search(self.RE_YOUTUBE_PLAYLIST_ARTIST, playlist_page)
 
         result = {}
         if art_match:
@@ -674,6 +742,10 @@ class ExternalMedia:
             result['art'] = art_match.groupdict().get('art_url')
         if duration_matches:
             result['duration'] = self.get_sum_duration(duration_matches)
+        if title_match:
+            result['title'] = html.unescape(title_match.groupdict().get('title', '').strip())
+        if artist_match:
+            result['artist'] = html.unescape(artist_match.groupdict().get('artist', '').strip())
         return result
 
     def spotify_album_art(self, src):
@@ -731,7 +803,7 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
             for iframe in pagesoup.findAll('iframe')
             if iframe.attrs.get('src')
         ]
-        album_urls   = self.media_items(iframes, fetch_album_art=True)
+        album_urls   = self.media_items(iframes, fetch_album_art=True, fetch_yt_video=True)
 
         album_copy   = '\n'.join([p.text for p in pagesoup.find(class_='feature-album__copy').findAll("p", recursive=False)])
         album_image  = pagesoup.find(class_='audio-summary__album-artwork')
@@ -942,7 +1014,7 @@ class SoundscapeScraper(Scraper, ExternalMedia):
             else:
                 iframes.append(media)
 
-        media_items = self.media_items(iframes, fetch_album_art=True)
+        media_items = self.media_items(iframes, fetch_album_art=True, fetch_yt_video=True)
         soundscape_date = pagesoup.find(class_='news-item__title').text.split(' - ')[-1]
 
         data = []
@@ -1108,7 +1180,7 @@ class EventsScraper(Scraper):
         }
 
 
-class EventScraper(Scraper):
+class EventScraper(Scraper, ExternalMedia):
     RESOURCE_PATH_PATTERN = '/events/{item}'
     WEBSITE_PATH_PATTERN = '/events/{item}'
 
@@ -1120,7 +1192,8 @@ class EventScraper(Scraper):
         item = self.soup().find(class_='event')
         venue = item.find(class_='event__venue-address-details')
         eventdetails = item.find(class_='event__details-copy').get_text(' ').strip()
-        textbody = item.find(class_='copy').get_text('\n')
+        copy = item.find(class_='copy')
+        textbody = copy.get_text('\n')
 
         flag_label = item.find(class_='flag-label')
         if flag_label:
@@ -1129,7 +1202,7 @@ class EventScraper(Scraper):
             # event_type = None
             event_type = 'event'
 
-        return {
+        result = {
             'data': [
                 {
                     'type':       event_type,
@@ -1145,6 +1218,32 @@ class EventScraper(Scraper):
                 }
             ],
         }
+
+        for link in copy.find_all(['a', 'iframe']):
+            link_href = {
+                'src': link.attrs.get('href', link.attrs.get('src')),
+            }
+            media = self.media_items([link_href], fetch_album_art=True, fetch_yt_video=True)[0]
+            if media.get('plugin'):
+                dataitem = {}
+                if media.get('plugin'):
+                    dataitem['id'] = media.get('media_id')
+                    dataitem['type'] = media.get('plugin')
+                else:
+                    dataitem['id'] = ''
+
+                dataitem['attributes'] = {
+                    'thumbnail':  media.get('thumbnail'),
+                    'background': media.get('background'),
+                    'duration':   media.get('duration'),
+                    'title':      media.get('title'),
+                    'textbody':   media.get('textbody', media.get('title')),
+                    'artist':     media.get('artist'),
+                }
+
+                result['data'].append(dataitem)
+
+        return result
 
 
 class GiveawaysScraper(Scraper):
