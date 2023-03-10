@@ -458,17 +458,20 @@ class TripleR():
         options = []
         for opt in opts:
             query = urlencode({'q': [opt]}, doseq=True)
-            query_sub = urlencode({'query': [opt]}, doseq=True)
             options.append({
                 'label': self.get_string(30105) % opt,
                 'path': self.url + '/tracks/search?' + query,
                 'icon': self.icon,
             })
+        for opt in opts:
+            query_sub = urlencode({'query': [opt]}, doseq=True)
             options.append({
                 'label': self.get_string(30106) % opt,
                 'path': 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=search&action=search&' + query_sub,
                 'icon': 'special://home/addons/plugin.audio.kxmxpxtx.bandcamp/icon.png',
             })
+        for opt in opts:
+            query = urlencode({'q': [opt]}, doseq=True)
             options.append({
                 'label': self.get_string(30107) % opt,
                 'path': 'plugin://plugin.video.youtube/kodion/search/query/?' + query,
