@@ -29,6 +29,8 @@ class Media:
     YOUTUBE_PLAYLIST_ART_URL         = 'https://youtube.com/oembed?url=https%3A//www.youtube.com/playlist%3Flist%3D{}&format=json'
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
+    INDIGITUBE_ALBUM_PLUGIN_BASE_URL   = 'plugin://plugin.audio.indigitube/?mode=list_songs'
+    INDIGITUBE_ALBUM_PLUGIN_FORMAT   = '{}&album_id={}'
 
     RE_SPOTIFY_ALBUM_ID              = re.compile(r'.+spotify\.com(\/embed)?\/album\/(?P<media_id>[^&?\/]+)')
     RE_SPOTIFY_PLAYLIST_ID           = re.compile(r'.+spotify\.com(\/embed)?\/playlist\/(?P<media_id>[^&]+)')
@@ -71,8 +73,9 @@ class Media:
         },
         'indigitube': {
             're':     RE_INDIGITUBE_ALBUM_ID,
-            'format': EXT_SEARCH_PLUGIN_FORMAT,
-            'name':   'Album Search',
+            'base':   INDIGITUBE_ALBUM_PLUGIN_BASE_URL,
+            'format': INDIGITUBE_ALBUM_PLUGIN_FORMAT,
+            'name':   'indigiTUBE',
         },
         'spotify': {
             're':     RE_SPOTIFY_ALBUM_ID,
