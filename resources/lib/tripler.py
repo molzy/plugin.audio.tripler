@@ -64,7 +64,8 @@ class TripleR():
             search = self.search(tracks=('tracks' in segments))
             if search:
                 args['q'] = search
-            return
+            else:
+                return
 
         if 'ext_search' in segments:
             self.ext_search(args)
