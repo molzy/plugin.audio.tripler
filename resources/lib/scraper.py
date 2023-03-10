@@ -498,6 +498,9 @@ class ExternalMedia:
     RE_YOUTUBE_PLAYLIST_DURATION     = re.compile(r'"lengthText":[^}]+}},"simpleText":"(?P<duration>[^"]+)"}')
 
     RE_INDIGITUBE_ALBUM_ID           = re.compile(r'https://www.indigitube.com.au/embed/album/(?P<media_id>[^"]+)')
+    INDIGITUBE_ACCESS_KEY            = 'access_token=%242a%2410%24x2Zy%2FTgIAOC0UUMi3NPKc.KY49e%2FZLUJFOpBCNYAs8D72UUnlI526'
+    INDIGITUBE_ALBUM_URL             = 'https://api.appbooks.com/content/album/{}?' + INDIGITUBE_ACCESS_KEY
+    INDIGITUBE_ALBUM_ART_URL         = 'https://api.appbooks.com/get/{}/file/file.jpg?w=512&quality=90&' + INDIGITUBE_ACCESS_KEY + '&ext=.jpg'
 
     RE_SPOTIFY_ALBUM_ID              = re.compile(r'.+spotify\.com(\/embed)?\/album\/(?P<media_id>[^&?\/]+)')
     RE_SPOTIFY_PLAYLIST_ID           = re.compile(r'.+spotify\.com(\/embed)?\/playlist\/(?P<media_id>[^&]+)')
@@ -568,7 +571,7 @@ class ExternalMedia:
             matches.append({
                 'media_id':   media_id,
                 'src':        iframe.get('src'),
-                'attrs':      iframe.get('attrs'),
+                'attrs':      iframe.get('attrs') if iframe.get('attrs') else {},
                 'plugin':     plugin if plugin_match else None,
             })
 
@@ -593,6 +596,8 @@ class ExternalMedia:
             album_art = self.bandcamp_band_art(media_id)
         elif plugin == 'bandcamp_track':
             album_art = self.bandcamp_track_art(media_id)
+        elif plugin == 'indigitube':
+            album_art = self.indigitube_album_art(media_id)
         elif plugin == 'spotify' or plugin == 'spotify_playlist':
             album_art = self.spotify_album_art(match['src'])
         elif plugin == 'apple':
@@ -608,8 +613,14 @@ class ExternalMedia:
         result['thumbnail']  = album_art.get('art')
         result['background'] = album_art.get('band')
         result['duration']   = album_art.get('duration')
-        result['title']      = album_art.get('title')
-        result['artist']     = album_art.get('artist')
+        if 'attrs' not in result.keys():
+            result['attrs'] = {}
+        if 'title' not in result['attrs'].keys() and album_art.get('title'):
+            result['attrs']['title']    = album_art.get('title')
+        if 'artist' not in result['attrs'].keys() and album_art.get('artist'):
+            result['attrs']['artist']   = album_art.get('artist')
+        if 'textbody' not in result['attrs'].keys() and album_art.get('textbody'):
+            result['attrs']['textbody'] = album_art.get('textbody')
         return result
 
     def get_sum_duration(self, duration_matches):
@@ -698,6 +709,28 @@ class ExternalMedia:
 
         return result
 
+    def indigitube_album_art(self, album_id):
+        api_url  = self.INDIGITUBE_ALBUM_URL.format(album_id)
+        result = {}
+
+        try:
+            json_obj = get_json_obj(api_url)
+        except URLError as e:
+            return result
+
+        data = json_obj.get('data', {})
+
+        art_id = data.get('coverImage', {}).get('_id')
+        if art_id:
+            result['art'] = self.INDIGITUBE_ALBUM_ART_URL.format(art_id)
+        description = json_obj.get('data', {}).get('description', '')
+        if description:
+            result['textbody'] = re.compile(r'<[^>]+>').sub('', description)
+        result['title']    = json_obj.get('title')
+        result['artist']   = json_obj.get('realms', [{}])[0].get('title')
+
+        return result
+
     def youtube_video_duration(self, video_id):
         video_url = self.YOUTUBE_VIDEO_DURATION_URL.format(video_id)
         try:
@@ -714,9 +747,9 @@ class ExternalMedia:
             gd = duration_match.groupdict()
             result['duration'] = self.get_pt_duration(gd)
         if title_match:
-            result['title'] = html.unescape(title_match.groupdict().get('title', '').strip())
+            result['title'] = title_match.groupdict().get('title', '').strip()
         if artist_match:
-            result['artist'] = html.unescape(artist_match.groupdict().get('artist', '').strip())
+            result['artist'] = artist_match.groupdict().get('artist', '').strip()
         if desc_match:
             result['textbody'] = html.unescape(desc_match.groupdict().get('textbody', '').strip())
 
@@ -1042,10 +1075,13 @@ class SoundscapeScraper(Scraper, ExternalMedia):
                 dataitem['id']    = ''
                 attributes['title'] = media.get('attrs').get('title')
 
-            attributes['textbody'] = '{}\n{}\n'.format(
-                media.get('attrs').get('title'),
-                media.get('attrs').get('featured_album')
-            ).strip()
+            if media.get('attrs').get('textbody'):
+                attributes['textbody'] = media.get('attrs').get('textbody', '').strip()
+            else:
+                attributes['textbody'] = '{}\n{}\n'.format(
+                    media.get('attrs').get('title'),
+                    media.get('attrs').get('featured_album')
+                ).strip()
 
             dataitem['attributes'] = attributes
 
@@ -1236,9 +1272,9 @@ class EventScraper(Scraper, ExternalMedia):
                     'thumbnail':  media.get('thumbnail'),
                     'background': media.get('background'),
                     'duration':   media.get('duration'),
-                    'title':      media.get('title'),
-                    'textbody':   media.get('textbody', media.get('title')),
-                    'artist':     media.get('artist'),
+                    'title':      media.get('attrs').get('title'),
+                    'textbody':   media.get('attrs').get('textbody', media.get('attrs').get('title')),
+                    'artist':     media.get('attrs').get('artist'),
                 }
 
                 result['data'].append(dataitem)
