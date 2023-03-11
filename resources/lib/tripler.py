@@ -93,6 +93,9 @@ class TripleR():
                 self.subscriber_giveaway(path=path)
             else:
                 self._notify(self.get_string(30073), self.get_string(30076))
+        elif 'play' in args:
+            self.play_stream(handle=self.handle, args=args, segments=segments)
+            return None
         else:
             scraped = Scraper.call(path)
             parsed = self.parse_programs(**scraped, args=args, segments=segments, k_title=k_title)
@@ -194,6 +197,31 @@ class TripleR():
     def context_item(self, label, path, plugin=None):
         plugin = plugin if plugin else self.id
         return (self.get_string(label), f'Container.Update(plugin://{plugin}{path})')
+
+    def play_stream(self, handle, args, segments):
+        li = xbmcgui.ListItem(
+            label = args.get('title', [''])[0],
+            path  = unquote_plus(args.get('play', [''])[0]),
+            offscreen=True,
+        )
+        li.setArt(
+            {
+                'thumb':  unquote_plus(args.get('thumbnail', [''])[0]).replace(' ', '%20'),
+                'fanart': unquote_plus(args.get('fanart', [''])[0]).replace(' ', '%20'),
+            }
+        )
+        if not self.matrix:
+            vi = li.getVideoInfoTag()
+            vi.setTitle(args.get('title', [''])[0])
+            vi.setMediaType('song')
+        else:
+            li.setInfo('video',
+                {
+                    'title':     args.get('title', [''])[0],
+                    'mediatype': 'song',
+                }
+            )
+        xbmcplugin.setResolvedUrl(self.handle, True, li)
 
     def parse_programs(self, data, args, segments, links=None, k_title=None):
         items = []
@@ -298,8 +326,19 @@ class TripleR():
                 aired       = attributes.get('date', '')
 
             if pathurl:
-                mediatype   = 'song'
-                info_type   = 'video'
+                is_playable = not pathurl.startswith('plugin://')
+                if is_playable:
+                    encodedurl = quote_plus(pathurl)
+                    pathurl = '{}/{}?play={}&title={}&thumbnail={}&fanart={}'.format(
+                        self.url,
+                        '/'.join(segments),
+                        quote_plus(encodedurl),
+                        quote_plus(title),
+                        quote_plus(thumbnail),
+                        quote_plus(fanart),
+                    )
+                mediatype = 'song'
+                info_type = 'video'
             else:
                 pathurl     = self._k_title(self.url + m_self, attributes.get('title'))
                 is_playable = False
