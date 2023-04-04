@@ -58,6 +58,28 @@ If you would instead like to use the latest development version, [download the z
 
 -----
 
+## Screenshots
+
+### Menu
+![Plugin Menu](resources/screenshots/menu.jpg)
+
+### Browse By Program
+![Browse By Program](resources/screenshots/browse-by-program.jpg)
+
+### Broadcast + Playlist
+![Broadcast + Playlist](resources/screenshots/broadcast-playlist.jpg)
+
+### Album Of The Week
+![Album Of The Week](resources/screenshots/album-of-the-week.jpg)
+
+### Browse By Date
+![Browse By Date](resources/screenshots/browse-by-date.jpg)
+
+### Soundscape
+![Soundscape](resources/screenshots/soundscape.jpg)
+
+-----
+
 ## License
 
 This plugin was initially forked from a Triple R plugin written by [Damon Toumbourou](https://github.com/DamonToumbourou/plugin.audio.tripler). 

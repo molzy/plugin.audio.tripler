@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.audio.tripler" name="Triple R" version="2.6.1" provider-name="Simon Mollema">
+<addon id="plugin.audio.tripler" name="Triple R" version="2.7.0" provider-name="Simon Mollema">
 	<requires>
 		<import addon="xbmc.python" version="3.0.0" />
 		<import addon="script.module.pytz" />
@@ -19,29 +19,25 @@
 		<license>MIT</license>
 		<email>xbmc@molzy.com</email>
 		<source>https://github.com/molzy/plugin.audio.tripler</source>
-        <news>Version 2.6.1
-- Subscriber-only functionality improved
-- Tweaked recently introduced features
-
-Version 2.6.0
-- Rearranged menu
-- Subscriber-only giveaways can now be entered by signing in
-- Browsing programs by date now possible
-
-Version 2.5.0
+		<news>Version 2.7.0
 - Rewritten with more flexible parser
 - More content added from website
-- Support for playing music through Bandcamp and YouTube addons
-
-Version 2.0.0
-- Rewritten for Matrix / Python 3.
-- Now scraping media information directly from new Triple R website.
-
-Version 1.0.1
-- Initial working version</news>
+- Improved user interface and menus
+- Browsing programs by name and date now possible
+- Broadcast track playlists are available
+- Support for playing music through Bandcamp, YouTube and indigiTUBE
+- Support for searching for music content by title and artist
+- Subscriber-only giveaways can now be entered by signing in
+</news>
 		<assets>
 			<icon>resources/icon.png</icon>
 			<fanart>resources/fanart.png</fanart>
+			<screenshot>resources/screenshots/menu.jpg</screenshot>
+			<screenshot>resources/screenshots/browse-by-program.jpg</screenshot>
+			<screenshot>resources/screenshots/browse-by-date.jpg</screenshot>
+			<screenshot>resources/screenshots/broadcast-playlist.jpg</screenshot>
+			<screenshot>resources/screenshots/album-of-the-week.jpg</screenshot>
+			<screenshot>resources/screenshots/soundscape.jpg</screenshot>
 		</assets>
 	</extension>
 </addon>
