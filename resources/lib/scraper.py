@@ -60,6 +60,15 @@ class Resource:
         return self.RE_CAMEL.sub('_', self.__class__.__name__).lower()
 
     @property
+    def img(self):
+        return self._itemobj.find('img')
+
+    @property
+    def thumbnail(self):
+        if self.img:
+            return self.img.attrs.get('data-src')
+
+    @property
     def links(self):
         return {
             'self': self.path
@@ -1105,10 +1114,6 @@ class Program(Resource):
         return self._itemobj.find('h1', class_='card__title' ).find('a').text
 
     @property
-    def thumbnail(self):
-        return self._itemobj.find('img').attrs.get('data-src')
-
-    @property
     def textbody(self):
         return self._itemobj.find('p').text
 
@@ -1410,10 +1415,6 @@ class FeaturedAlbum(Resource):
         return self._itemobj.find(class_='card__meta').text
 
     @property
-    def thumbnail(self):
-        return self._itemobj.find('img').attrs.get('data-src')
-
-    @property
     def textbody(self):
         return self._itemobj.find('p').text
 
@@ -1434,10 +1435,6 @@ class Giveaway(Resource):
     @property
     def textbody(self):
         return self._itemobj.find('p').text
-
-    @property
-    def thumbnail(self):
-        return self._itemobj.find('img').attrs.get('data-src')
 
     def attributes(self):
         return {
@@ -1475,10 +1472,6 @@ class Soundscape(Resource):
     @property
     def subtitle(self):
         return self._itemobj.find('span').text.split(' - ')[-1]
-
-    @property
-    def thumbnail(self):
-        return self._itemobj.find('img').attrs.get('data-src')
 
     @property
     def textbody(self):
@@ -1519,10 +1512,8 @@ class Event(Resource):
         return self._itemtype.replace(' ', '-').lower()
 
     @property
-    def thumbnail(self):
-        img = self._itemobj.find('a', class_='card__anchor').find('img')
-        if img:
-            return img.attrs['data-src']
+    def img(self):
+        return self._itemobj.find('a', class_='card__anchor').find('img')
 
     @property
     def _itemdate(self):
@@ -1764,6 +1755,10 @@ class PlayableResource(Resource):
         return self._playable.get('data', {})
 
     @property
+    def _audio_data(self):
+        return self._data.get('audio_file', {})
+
+    @property
     def _on_air_toggle(self):
         dataview = self._itemobj.attrs.get('data-view-on-air-toggle')
         if dataview:
@@ -1852,13 +1847,17 @@ class PlayableResource(Resource):
 
     @property
     def duration(self):
-        if self._data:
-            return round(self._data.get('duration'))
+        if self._audio_data:
+            return round(self._audio_data.get('duration', 0))
+        elif self._data:
+            return round(self._data.get('duration', 0))
 
     @property
     def url(self):
-        if self._data:
+        if self._data and self._data.get('timestamp'):
             return f"https://ondemand.rrr.org.au/getclip?bw=h&l={self.duration}&m=r&p=1&s={self._data.get('timestamp')}"
+        elif self._audio_data and self._audio_data.get('path'):
+            return self._audio_data.get('path')
         else:
             start, end = self._on_air_status
             localtime = datetime.now(TZ_MELBOURNE)
