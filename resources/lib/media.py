@@ -7,7 +7,10 @@ class Media:
     BANDCAMP_ALBUM_PLUGIN_FORMAT     = '{}&album_id={}&item_type=a'
     BANDCAMP_ALBUM_ART_URL           = 'https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=a&tralbum_id={}'
 
-    RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/track/[\w\-]+)')
+    RE_BANDCAMP_ALBUM_LINK_ID        = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/album/[\w\-]+)')
+    RE_BANDCAMP_BAND_LINK_ID         = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/)$')
+
+    RE_BANDCAMP_TRACK_ID             = re.compile(r'(?P<media_id>https?://[^/\.]+\.bandcamp.com/(track|album)/[\w\-]+)')
     BANDCAMP_TRACK_PLUGIN_BASE_URL   = 'plugin://plugin.audio.kxmxpxtx.bandcamp/?mode=url'
     BANDCAMP_TRACK_PLUGIN_FORMAT     = '{}&url={}'
     RE_BANDCAMP_TRACK_ART            = re.compile(r'art_id&quot;:(?P<art_id>\d+),')
@@ -52,6 +55,17 @@ class Media:
             'base':   BANDCAMP_TRACK_PLUGIN_BASE_URL,
             'format': BANDCAMP_TRACK_PLUGIN_FORMAT,
             'name':   'Bandcamp',
+        },
+        'bandcamp_link': {
+            're':     RE_BANDCAMP_ALBUM_LINK_ID,
+            'base':   BANDCAMP_TRACK_PLUGIN_BASE_URL,
+            'format': BANDCAMP_TRACK_PLUGIN_FORMAT,
+            'name':   'Bandcamp',
+        },
+        'bandcamp_band_link': {
+            're':     RE_BANDCAMP_BAND_LINK_ID,
+            'format': EXT_SEARCH_PLUGIN_FORMAT,
+            'name':   'Bandcamp Band Search',
         },
         'soundcloud': {
             're':     RE_SOUNDCLOUD_PLAYLIST_ID,

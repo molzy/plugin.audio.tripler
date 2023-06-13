@@ -232,9 +232,10 @@ class TripleR():
                 title       = f'{title} ({name})'
                 textbody    = self.get_string(30008) % (name) + '\n' + textbody
 
-                if 'bandcamp' in m_type:
+                if 'bandcamp' in m_type or 'apple' in m_type:
                     thumbnail = self.media.parse_art(thumbnail)
-                    fanart    = self.media.parse_art(fanart)
+                    if fanart != self.fanart:
+                        fanart    = self.media.parse_art(fanart)
 
                 if not thumbnail:
                     thumbnail = 'DefaultMusicSongs.png'

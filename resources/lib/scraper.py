@@ -598,10 +598,8 @@ class ExternalMedia:
         if plugin == 'bandcamp':
             album_art = self.bandcamp_album_art(media_id)
         elif plugin == 'bandcamp_link':
-            result['plugin'] = 'bandcamp'
             album_art = self.bandcamp_track_art(media_id)
         elif plugin == 'bandcamp_band_link':
-            result['plugin'] = 'bandcamp'
             album_art = self.bandcamp_band_art(media_id)
         elif plugin == 'bandcamp_track':
             album_art = self.bandcamp_track_art(media_id)
