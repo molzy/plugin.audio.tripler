@@ -319,7 +319,7 @@ class TripleR():
             li.setArt(
                 {
                     'icon':      icon,
-                    'thumbnail': thumbnail,
+                    'thumb':     thumbnail,
                     'fanart':    fanart,
                 }
             )
