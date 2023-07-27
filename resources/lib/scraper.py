@@ -851,16 +851,16 @@ class FeaturedAlbumScraper(Scraper, ExternalMedia):
         album_title  = album_info.find(class_='album-banner__heading', recursive=False).text
         album_artist = album_info.find(class_='album-banner__artist',  recursive=False).text
 
-        if len(album_urls) > 0:
-            album_type = album_urls[0].get('plugin')
-            album_id   = album_urls[0].get('media_id')
-            background = album_urls[0].get('background')
-            duration   = album_urls[0].get('duration')
-        else:
-            album_type = 'featured_album'
-            album_id   = self.resource_path.split('/')[-1]
-            background = None
-            duration   = None
+        album_type = 'featured_album'
+        album_id   = self.resource_path.split('/')[-1]
+        background = None
+        duration   = None
+
+        for album in [album for album in album_urls if album.get('plugin')]:
+            album_type = album.get('plugin')
+            album_id   = album.get('media_id')
+            background = album.get('background')
+            duration   = album.get('duration')
 
         data = [
             {
