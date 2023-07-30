@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import bs4, html, time, json, re, sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
-import pytz
+from datetime import datetime, timedelta
 # from marshmallow_jsonapi import Schema, fields
 
 
@@ -17,7 +16,6 @@ else:
     from urlparse import parse_qs
 
 
-TZ_MELBOURNE = pytz.timezone('Australia/Melbourne')
 DATE_FORMAT = '%Y-%m-%d'
 
 URL_BASE = 'https://www.rrr.org.au'
@@ -41,6 +39,9 @@ def get_json(url):
 
 def get_json_obj(url):
     return json.loads(get_json(url))
+
+def strptime(s, fmt):
+    return datetime.fromtimestamp(time.mktime(time.strptime(s, fmt)))
 
 
 class Resource:
@@ -1567,10 +1568,13 @@ class ScheduleItem:
 
     @property
     def _on_air_status(self):
-        if self.start and self.end:
+        if self.start and self.end and '+' in self.start:
+            start = self.start.split('+')
+            end   = self.end.split('+')
+            td    = timedelta(hours=int(start[1][:2]))
             try:
-                start = datetime.strptime(self.start, '%Y-%m-%dT%H:%M:%S%z')
-                end   = datetime.strptime(self.end,   '%Y-%m-%dT%H:%M:%S%z')
+                start = strptime(start[0], '%Y-%m-%dT%H:%M:%S') - td
+                end   = strptime(end[0],   '%Y-%m-%dT%H:%M:%S') - td
                 return start, end
             except (ValueError, TypeError) as e:
                 pass
@@ -1602,8 +1606,8 @@ class ScheduleItem:
                 content['type'] = 'scheduled'
 
         start, end = self._on_air_status
-        if not ignore_on_air and start and end:
-            localtime = datetime.now(TZ_MELBOURNE)
+        if (not ignore_on_air) and start and end:
+            localtime = datetime.utcnow()
             if start < localtime and end > localtime:
                 flag_label = self._itemobj.find(class_='flag-label__on-air').next_sibling
                 if flag_label:
@@ -1766,9 +1770,12 @@ class PlayableResource(Resource):
     def _on_air_status(self):
         toggle = self._on_air_toggle
         if toggle:
+            start = toggle.get('startTime').split('+')
+            end   = toggle.get('endTime').split('+')
+            td    = timedelta(hours=int(start[1][:2]))
             try:
-                start = datetime.strptime(toggle.get('startTime'), '%Y-%m-%dT%H:%M:%S%z')
-                end   = datetime.strptime(toggle.get('endTime'),   '%Y-%m-%dT%H:%M:%S%z')
+                start = strptime(start[0], '%Y-%m-%dT%H:%M:%S') - td
+                end   = strptime(end[0],   '%Y-%m-%dT%H:%M:%S') - td
                 return start, end
             except (ValueError, TypeError) as e:
                 pass
@@ -1798,17 +1805,17 @@ class PlayableResource(Resource):
             return self._data.get('title')
         else:
             start, end = self._on_air_status
-            localtime = datetime.now(TZ_MELBOURNE)
+            localtime = datetime.utcnow()
             title = None
 
-            if start and end:
+            if start and end and self._on_air_toggle:
                 if start > localtime:
                     title = self._itemobj.find(class_=self._on_air_toggle.get('upcomingEl')[1:])
                 if start < localtime and end > localtime:
                     title = self._itemobj.find(class_=self._on_air_toggle.get('onAirEl')[1:])
                 if end < localtime:
                     title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
-            else:
+            elif self._on_air_toggle:
                 title = self._itemobj.find(class_=self._on_air_toggle.get('offAirEl')[1:])
 
             return title.find('span').text if title else None
@@ -1858,7 +1865,7 @@ class PlayableResource(Resource):
             return self._audio_data.get('path')
         else:
             start, end = self._on_air_status
-            localtime = datetime.now(TZ_MELBOURNE)
+            localtime = datetime.utcnow()
 
             if start and end:
                 if start < localtime and end > localtime:
