@@ -39,13 +39,13 @@ class TripleR():
         return self.addon.getLocalizedString(string_id)
 
     def _notify(self, title, message):
-        xbmc.log(f'{title} - {message}', xbmc.LOGDEBUG)
+        xbmc.log(f'TripleR plugin notification: {title} - {message}', xbmc.LOGDEBUG)
         self.dialog.notification(title, message, icon=self.icon)
 
     def parse(self):
         args = parse_qs(sys.argv[2][1:])
         segments = sys.argv[0].split('/')[3:]
-        xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGINFO)
+        xbmc.log("TripleR plugin called: " + str(sys.argv), xbmc.LOGDEBUG)
 
         if 'schedule' in segments and args.get('picker'):
             date = self.select_date(args.get('picker')[0])
