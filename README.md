@@ -21,7 +21,6 @@ This plugin aims to provide as much content as possible from the [Triple R Websi
 - Listen Live!
 - Browse by Program
 - Browse by Date
-- Latest Programs
 - Latest Segments
 - Audio Archives
 - Album Of The Week
@@ -46,7 +45,7 @@ If you would like to use the release version with automatic updates, please inst
 
 ### Latest Development Version
 
-If you would instead like to use the latest development version, [download the zip file](https://github.com/molzy/plugin.audio.tripler.scraper/archive/refs/heads/scraper.zip) to the same computer that is running Kodi. Afterwareds, follow these steps:
+If you would instead like to use the latest development version, [download the zip file](https://github.com/molzy/plugin.audio.tripler/archive/refs/heads/scraper.zip) to the same computer that is running Kodi. Afterwareds, follow these steps:
 
 - Open Kodi.
 - From the main menu, navigate to Settings > System > Add-ons.
