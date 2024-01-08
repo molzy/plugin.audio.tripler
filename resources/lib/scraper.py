@@ -2,19 +2,10 @@
 import bs4, html, time, json, re, sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-# from marshmallow_jsonapi import Schema, fields
 
-
-IS_PY3 = sys.version_info[0] > 2
-if IS_PY3:
-    from urllib.request import Request, urlopen
-    from urllib.parse import parse_qs, urlencode
-    from urllib.error import URLError
-else:
-    from urllib2 import Request, urlopen
-    from urllib2 import urlencode
-    from urlparse import parse_qs
-
+from urllib.request import Request, urlopen
+from urllib.parse import parse_qs, urlencode
+from urllib.error import URLError
 
 DATE_FORMAT = '%Y-%m-%d'
 
@@ -22,7 +13,6 @@ URL_BASE = 'https://www.rrr.org.au'
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36'
 
-stderr = False
 ignore_on_air = False
 
 
@@ -30,8 +20,6 @@ def get(resource_path):
     return urlopen_ua(Scraper.url_for(resource_path))
 
 def urlopen_ua(url):
-    if stderr:
-        sys.stderr.write(f"[34m# Fetching: [34;1m'{url}'[0m\n")
     return urlopen(Request(url, headers={'User-Agent': USER_AGENT}), timeout=5)
 
 def get_json(url):
@@ -152,7 +140,6 @@ class Scraper:
     @classmethod
     def call(cls, resource_path):
         scraper = cls.find_by_resource_path(resource_path)
-      # sys.stderr.write(f"[32m# Using : [32;1m'{scraper}'[0m on [32;1m'{resource_path}'[0m\n")
         return strip_values(scraper.generate())
 
     @classmethod
@@ -2240,5 +2227,4 @@ class Podcast(AudioItem):
 
 
 if __name__ == "__main__":
-    stderr = True
     print(json.dumps(Scraper.call(sys.argv[1])))
