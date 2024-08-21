@@ -2,15 +2,15 @@
 
 A Kodi plugin for Triple R: an independent community radio station in Melbourne, Australia.
 
+[Mentioned on air!](https://www.rrr.org.au/shared/broadcast-episode/30494/2367000/2419000)
+
 ![Triple R Logo](resources/icon.png)
 
 -----
 
-## Frequently Asked Questions
-
 ### What is Triple R?
 
-For more than 40 years Triple R has shaped and inspired the culture of Melbourne. Since its inception as an educational broadcaster in 1976, Triple R has become Australia's most influential community radio station with nearly 21,000 paid subscribers and broadcasting live to over 1,000,000 listeners per month across FM and digital (DAB+ digital radio, podcasts and online).
+For more than 40 years Triple R has shaped and inspired the culture of Melbourne. Since its inception as an educational broadcaster in 1976, Triple R has become Australia's most influential community radio station with nearly 21,000 [paid subscribers](https://www.rrr.org.au/subscribe) and broadcasting live to over 1,000,000 listeners per month across FM and digital (DAB+ digital radio, podcasts and online).
 
 Broadcasting on 102.7FM and 3RRR Digital, the Triple R grid houses over 60 diverse programs. Music shows cover every genre imaginable from pop to punk rock, from R&B and electro to jazz, hip hop, country and metal. Specialist talks programs delve into topics as varied as the environment, human rights, politics, medical issues, gardening, cultural ventures and local interests.
 
@@ -26,7 +26,7 @@ This plugin aims to provide as much content as possible from the [Triple R Websi
 - Album Of The Week
 - Soundscapes
 - Events
-- Subscriber Giveaways (for logged in users only!)
+- Subscriber Giveaways (for [subscribed](https://www.rrr.org.au/subscribe) users only!)
 
 -----
 
