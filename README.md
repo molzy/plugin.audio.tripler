@@ -81,8 +81,8 @@ If you would instead like to use the latest development version, [download the z
 
 ## License
 
-This plugin was initially forked from a Triple R plugin written by [Damon Toumbourou](https://github.com/DamonToumbourou/plugin.audio.tripler). 
+This plugin was initially forked from a Triple R plugin written by [Damon Toumbourou](https://github.com/DamonToumbourou/plugin.audio.tripler).
 
-The plugin was then fully rewritten by Simon Mollema.
+The plugin was then fully rewritten by Simon Mollema, and [@yertto](https://github.com/yertto) who contributed the majority of the backend website parsing logic in [scraper.py](https://github.com/molzy/plugin.audio.tripler/blob/scraper/resources/lib/scraper.py).
 
 The plugin is released under the terms of [the MIT license](LICENSE.txt).
